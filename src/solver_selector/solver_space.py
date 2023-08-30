@@ -1,3 +1,4 @@
+from collections import defaultdict
 from copy import deepcopy
 from itertools import count, product
 from typing import Literal, Optional
@@ -77,7 +78,13 @@ class DecisionTemplate:
                 assert param_name in param_space.numerical
                 assert isinstance(param_value, number)
         return Decision(subsolvers=self.subsolvers, parameters=parameters)
-
+    
+    def use_defaults(self) -> Decision:
+        defaults = defaultdict(lambda: dict())
+        for node_id, param_space in self.parameters.items():
+            for param_name, param_value in param_space.numerical.items():
+                defaults[node_id][param_name] = param_value.default
+        return self.select_parameters(defaults)
 
 class SolverConfigNode:
     """Represents an abstract solver configuration."""
@@ -96,6 +103,28 @@ class SolverConfigNode:
         self.parent: Optional[SolverConfigNode] = None
         for child in self.children:
             child.parent = self  # Reference cycle
+        self._ensure_unique_ids()
+
+    def _ensure_unique_ids(self) -> set[int]:
+        """If ids are not unique for some reason, many bad things can happen.
+
+        Returns:
+            Set of ids in the tree.
+
+        """
+        children_ids = [child._ensure_unique_ids() for child in self.children]
+        total_ids = sum(len(x) for x in children_ids)
+        merged_ids = {val for child_ids in children_ids for val in child_ids}
+        if len(merged_ids) != total_ids:
+            all_ids = [id for child_ids in children_ids for id in child_ids]
+            presence, counts = np.unique(all_ids, return_counts=True)
+            nonunique = presence[np.where(counts > 1)].tolist()
+            raise ValueError(
+                "There are more than one node with each of these ids: "
+                f"{nonunique}. Probably, you should use .copy() somewhere."
+            )
+
+        return merged_ids | {self._id}
 
     def copy(self) -> Self:
         return type(self)(
@@ -273,11 +302,11 @@ class ForkNode(SolverConfigNode):
         options: Sequence[SolverConfigNode],
         name: str = None,
     ):
-        self.options = {opt.name: opt for opt in options}
-        super().__init__(children=options, name=name)
+        self.options = {opt.name: opt.copy() for opt in options}
+        super().__init__(children=list(self.options.values()), name=name)
 
     def copy(self) -> Self:
-        return type(self)(options=[option.copy() for option in self.options.values()])
+        return type(self)(list(self.options.values()))
 
     def _get_submethods(self) -> Sequence[dict[int, str | ParametersSpace]]:
         all_options = []
@@ -400,7 +429,7 @@ class SplittingNode(SolverConfigNode):
         self.linear_solver_node_secondary.name = "secondary"
         if other_children is None:
             other_children = []
-        self.other_children = other_children
+        self.other_children = [child.copy() for child in other_children]
         super().__init__(
             children=[
                 self.linear_solver_node_primary,

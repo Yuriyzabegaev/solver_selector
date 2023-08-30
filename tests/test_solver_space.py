@@ -1,3 +1,4 @@
+from pytest import raises
 from solver_selector.solver_space import (
     KrylovSolverNode,
     KrylovSolverDecisionNode,
@@ -131,5 +132,12 @@ def test_solver_space():
     assert node._id == some_node_id
 
 
+def test_check_unique_ids():
+    ilu = SolverConfigNode(name="ilu")
+    with raises(ValueError):
+        _ = SolverConfigNode(children=[ilu, ilu], name='head')
+
+
 if __name__ == "__main__":
     test_solver_space()
+    test_check_unique_ids()

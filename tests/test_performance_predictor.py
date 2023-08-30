@@ -1,11 +1,6 @@
 import numpy as np
 
-from solver_selector.data_structures import (
-    ProblemContext,
-    SolverSelectionData,
-    NonlinearIterationStats,
-    NonlinearSolverStats,
-)
+
 from solver_selector.solver_space import (
     KrylovSolverNode,
     SolverConfigNode,
@@ -17,6 +12,8 @@ from solver_selector.performance_predictor import (
     PerformancePredictorEpsGreedy,
     DEFAULT_EXPECTATION,
 )
+
+from tests_common import DummpyProblemContext, generate_synthetic_data
 
 
 def make_solver_template():
@@ -44,11 +41,6 @@ def make_solver_template():
     solver_templates = gmres.get_all_solvers()
     assert len(solver_templates) == 1
     return solver_templates[0]
-
-
-class DummpyProblemContext(ProblemContext):
-    def get_array(self) -> np.ndarray:
-        return np.array([1, 2, 3], dtype=float)
 
 
 def test_parameters_space():
@@ -85,39 +77,14 @@ def test_performance_predictor():
     assert prediction.score == DEFAULT_EXPECTATION
 
     # Generating synthetic data
-    simulation_data = [
-        SolverSelectionData(
-            work_time = num_linear_systems * 10,
-            nonlinear_solver_stats=NonlinearSolverStats(
-                is_converged=True,
-                is_diverged=False,
-                raised_error=False,
-                num_nonlinear_iterations=num_linear_systems,
-                nonlinear_error=[0, 0],
-                iterations=[
-                    NonlinearIterationStats(
-                        work_time=i,
-                        solve_linear_system_time=i,
-                        assembly_time=i,
-                        update_preconditioner_time=i,
-                        linear_solver_converged=True,
-                        num_linear_iterations=i,
-                        linear_residual_decrease=1e-8,
-                    )
-                    for i in range(1, num_linear_systems + 1)
-                ],
-            ),
-            prediction=prediction,
-            rewards=[i * 2 for i in range(1, num_linear_systems + 1)]
-        )
-        for num_linear_systems in [4, 6]
-    ]
+
 
     # Online learning process
     np.random.seed(42)  # Maybe something random happens inside sklearn.
+    simulation_data = generate_synthetic_data(prediction=prediction, seed=0)
     for time_step_data in simulation_data:
         performance_predictor.online_update(time_step_data)
-    
+
     assert len(performance_predictor.memory_contexts) == 10
     assert len(performance_predictor.memory_rewards) == 10
     assert performance_predictor.is_initialized
