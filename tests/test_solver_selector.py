@@ -1,5 +1,5 @@
 import numpy as np
-from solver_selector.solver_selector import SolverSelector, RewardPicker
+from solver_selector.solver_selector import SolverSelector
 from solver_selector.performance_predictor import (
     PerformancePredictorEpsGreedy,
     PerformancePredictor,
@@ -45,7 +45,6 @@ def make_solver_space():
 
 
 def make_solver_selector(solver_space: SolverConfigNode):
-    reward_picker = RewardPicker()
     all_solvers = solver_space.get_all_solvers()
     predictors: list[PerformancePredictor] = []
     for solver_template in all_solvers:
@@ -56,7 +55,6 @@ def make_solver_selector(solver_space: SolverConfigNode):
         )
     return SolverSelector(
         solver_space=solver_space,
-        reward_picker=reward_picker,
         predictors=predictors,
     )
 

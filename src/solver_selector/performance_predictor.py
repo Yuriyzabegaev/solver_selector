@@ -155,6 +155,8 @@ class PerformancePredictorEpsGreedy(PerformancePredictor):
         self.x_space: np.ndarray = self.parameters_space.make_parameters_grid()
 
     def _concatenate_context_parameters_space(self, context: np.ndarray):
+        if len(self.x_space) == 0:
+            return context.reshape(1, -1)
         numerical_actions = np.atleast_2d(self.x_space)
         context = np.broadcast_to(
             context, shape=(numerical_actions.shape[0], context.shape[0])

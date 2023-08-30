@@ -46,11 +46,9 @@ class SolverSelector:
     def __init__(
         self,
         solver_space: SolverConfigNode,
-        reward_picker: RewardPicker,
         predictors: Sequence[PerformancePredictor],
     ):
         self.solver_space: SolverConfigNode = solver_space
-        self.reward_picker: RewardPicker = reward_picker
         self.all_solvers: Sequence[
             DecisionTemplate
         ] = self.solver_space.get_all_solvers()
@@ -105,14 +103,6 @@ class SolverSelector:
 
         for dataset, predictor in zip(datasets_for_predictors, self.predictors):
             predictor.offline_update(dataset)
-
-    def make_config_and_decision(
-        self,
-        problem_description: ProblemContext,
-    ) -> tuple[dict, PerformancePredictionData]:
-        prediction = self.select_solver(problem_description)
-        config = self.solver_space.config_from_decision(prediction.decision.subsolvers)
-        return config, prediction
 
     def _get_solver_idx(self, decision: Decision) -> int:
         for idx, solver in enumerate(self.all_solvers):
