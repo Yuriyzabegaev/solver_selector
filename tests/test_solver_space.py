@@ -10,40 +10,40 @@ from solver_selector.solver_space import (
 
 
 EXPECTED_CONFIG = {
-        "linear solver": {
-            "bicgstab": {
-                "preconditioner": {
-                    "fixed_stress": {
-                        "primary": {
-                            "no_solver": {
-                                "preconditioner": {
-                                    "ilu": {
-                                        "parameters_node": {
-                                            "drop_tol": 1e-05,
-                                            "param_1": 10,
-                                        }
+    "linear solver": {
+        "bicgstab": {
+            "preconditioner": {
+                "fixed_stress": {
+                    "primary": {
+                        "no_solver": {
+                            "preconditioner": {
+                                "ilu": {
+                                    "parameters_node": {
+                                        "drop_tol": 1e-05,
+                                        "param_1": 10,
                                     }
                                 }
                             }
-                        },
-                        "secondary": {
-                            "no_solver": {
-                                "preconditioner": {
-                                    "ilu": {
-                                        "parameters_node": {
-                                            "drop_tol": 1e-05,
-                                            "param_1": 10,
-                                        }
+                        }
+                    },
+                    "secondary": {
+                        "no_solver": {
+                            "preconditioner": {
+                                "ilu": {
+                                    "parameters_node": {
+                                        "drop_tol": 1e-05,
+                                        "param_1": 10,
                                     }
                                 }
                             }
-                        },
-                        "parameters_node": {"l_factor": 1},
-                    }
+                        }
+                    },
+                    "parameters_node": {"l_factor": 1},
                 }
             }
         }
     }
+}
 
 
 def test_solver_space():
@@ -120,14 +120,15 @@ def test_solver_space():
     expected = "bicgstab - fixed_stress [primary - no_solver - ilu [drop_tol=1e-05, param_1=10], secondary - no_solver - ilu [drop_tol=1e-05, param_1=10], l_factor=1]"
     assert config_str == expected
 
-    node = solver_space.find_node_by_id(36)
-    assert node._id == 36
-
     nodes = solver_space.find_nodes_by_name("amg")
     assert len(nodes) == 6
     assert len(set(node._id for node in nodes)) == 6
     for node in nodes:
-        assert node.name == 'amg'
+        assert node.name == "amg"
+
+    some_node_id = nodes[-1]._id
+    node = solver_space.find_node_by_id(some_node_id)
+    assert node._id == some_node_id
 
 
 if __name__ == "__main__":

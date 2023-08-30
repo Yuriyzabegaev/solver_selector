@@ -26,7 +26,6 @@ class CategoryParameter:
     is_optimized: bool = True
 
 
-
 @dataclass(kw_only=True, slots=True, frozen=True)
 class ParametersSpace:
     """Represents numerical and categorical parameters of one algorithm node, e.g.
@@ -87,15 +86,12 @@ class SolverConfigNode:
     type: str
     """Type of solver algorithm."""
 
+    def __repr__(self) -> str:
+        return f"Solver config node {self._id}: {self.name}"
+
     def __init__(self, children: Sequence["SolverConfigNode"] = None, name: str = None):
         self._id = next(self._counter)
-        if children is not None:
-            children = tuple(
-                children
-            )  # Using new list to make options and children different lists
-        else:
-            children = tuple()
-        self.children: Sequence[SolverConfigNode] = children
+        self.children: Sequence[SolverConfigNode] = tuple(children or [])
         self.name: str = name or self.type
         self.parent: Optional[SolverConfigNode] = None
         for child in self.children:
@@ -175,9 +171,7 @@ class SolverConfigNode:
         return "[{:s}]".format(", ".join(results))
 
     def find_node_by_id(self, node_id: int) -> "SolverConfigNode":
-        """Returns a child config node with a given id. The ids are unique.
-
-        """
+        """Returns a child config node with a given id. The ids are unique."""
         if self._id == node_id:
             return self
         for child in self.children:
@@ -188,9 +182,7 @@ class SolverConfigNode:
         raise ValueError(f"Node with id={node_id} not found")
 
     def find_nodes_by_name(self, node_name: str) -> Sequence["SolverConfigNode"]:
-        """Returns children config nodes with a given name. The names are not unique.
-
-        """
+        """Returns children config nodes with a given name. The names are not unique."""
         if self.name == node_name:
             return [self]
         nodes = []
@@ -228,20 +220,20 @@ class SolverConfigNode:
         assert node_name == self.name
 
         if len(self.children) == 0:
-             return {}, {}
-        
+            return {}, {}
+
         submethods = []
         subparams = []
         for child in self.children:
             child_name = child.name
             child_subconfig = subconfig[child_name]
             child_config = {child_name: child_subconfig}
-            child_submethods, child_subparams = child._parse_config_recursively(child_config)
+            child_submethods, child_subparams = child._parse_config_recursively(
+                child_config
+            )
             submethods.append(child_submethods)
             subparams.append(child_subparams)
         return _merge_dicts(submethods), _merge_dicts(subparams)
-
-       
 
 
 class ConstantNode(SolverConfigNode):
@@ -313,7 +305,7 @@ class ForkNode(SolverConfigNode):
         subconfig = config[self.name]
         if isinstance(subconfig, str):
             subconfig = {subconfig: {}}
-    
+
         subconfig_items = list(subconfig.items())
         assert len(subconfig_items) == 1, "Don't know what to do"
         child_name, _ = subconfig_items[0]
@@ -352,47 +344,21 @@ class KrylovSolverNode(SolverConfigNode):
     def from_preconditioners_list(
         cls,
         preconditioners: Sequence[SolverConfigNode],
-        **kwargs
+        other_children: Sequence[SolverConfigNode] = None,
+        **kwargs,
     ):
         """Convenience method to assemble a space of a Krylov solver with various
         preconditioners.
 
         """
+        preconditioners = [prec.copy() for prec in preconditioners]
+        children = [PreconditionerDecisionNode(options=preconditioners)]
+        if other_children is not None:
+            children.extend(other_children)
+
         return cls(
-            preconditioner_node=PreconditionerDecisionNode(options=preconditioners),
+            children=children,
             **kwargs,
-        )
-
-    def __init__(
-        self,
-        preconditioner_node: PreconditionerDecisionNode,
-        name: str = None,
-        # params: dict = None,
-        other_children: Sequence[SolverConfigNode] = None
-    ):
-        self.preconditioner = preconditioner_node.copy()
-        if other_children is None:
-            other_children = []
-
-        super().__init__(children=[self.preconditioner] + other_children, name=name)
-        self.other_children = other_children
-        # self.params: dict = params or {}
-
-    # def config_from_decision(
-    #     self, decision: Decision, optimized_only: bool = False
-    # ) -> dict:
-    #     preconditioner_config = self.preconditioner.config_from_decision(
-    #         decision, optimized_only=optimized_only
-    #     )
-    #     config 
-    #     return {self.name: preconditioner_config | self.params}
-
-    def copy(self) -> Self:
-        return type(self)(
-            name=self.name,
-            preconditioner_node=self.preconditioner.copy(),
-            other_children=self.other_children.copy(),
-            # params=self.params,
         )
 
 
@@ -520,7 +486,6 @@ class ParametersNode(SolverConfigNode):
 
     def _get_submethods(self) -> Sequence[dict[int, str | ParametersSpace]]:
         return [{self._id: self.parameters}]
-    
 
 
 def _merge_dicts(list_of_dicts: Sequence[dict]) -> dict:
