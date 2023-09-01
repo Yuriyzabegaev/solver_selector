@@ -10,7 +10,7 @@ from solver_selector.simulation_runner import (
 from solver_selector.solver_space import (
     ConstantNode,
     KrylovSolverDecisionNode,
-    ForkNodeNames,
+    DecisionNodeNames,
 )
 from tests_common import DummpyProblemContext
 
@@ -19,7 +19,6 @@ def generate_solver_stats(multiplier):
     return NonlinearSolverStats(
         is_converged=True,
         is_diverged=False,
-        raised_error=False,
         num_nonlinear_iterations=1,
         nonlinear_error=[0, 0],
         iterations=[
@@ -63,15 +62,13 @@ class DummySimulation(SimulationModel):
         return DummpyProblemContext()
 
     def assemble_solver(self, solver_config: dict) -> Solver:
-        value = solver_config[ForkNodeNames.krylov_solver_picker]
-        if value == "solver1":
+        subconfig = solver_config[DecisionNodeNames.krylov_solver_picker]
+        solver_name = list(subconfig.keys())[0]
+        if solver_name == "solver1":
             return DummySolver1()
-        elif value == "solver2":
+        elif solver_name == "solver2":
             return DummySolver2()
         raise ValueError
-
-    def before_time_step(self):
-        pass
 
     def is_complete(self) -> bool:
         return self.time_step_idx >= 10
@@ -84,7 +81,9 @@ def test_simulation_runner():
             ConstantNode("solver2"),
         ]
     )
-    simulation_runner = make_simulation_runner(solver_space)
+    simulation_runner = make_simulation_runner(
+        solver_space, {"print_solver": True, "print_time": True}
+    )
 
     simulation = DummySimulation()
 

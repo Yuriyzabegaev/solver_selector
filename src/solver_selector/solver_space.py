@@ -78,7 +78,7 @@ class DecisionTemplate:
                 assert param_name in param_space.numerical
                 assert isinstance(param_value, number)
         return Decision(subsolvers=self.subsolvers, parameters=parameters)
-    
+
     def use_defaults(self) -> Decision:
         defaults = defaultdict(lambda: dict())
         for node_id, param_space in self.parameters.items():
@@ -86,12 +86,18 @@ class DecisionTemplate:
                 defaults[node_id][param_name] = param_value.default
         return self.select_parameters(defaults)
 
+
 class SolverConfigNode:
     """Represents an abstract solver configuration."""
 
     _counter = count(0)
     type: str
-    """Type of solver algorithm."""
+    """Type of solver algorithm. 
+    
+    Used for convenience in subclasses that represent one specific solver.
+    It prevents passing a name in the constructor.
+    
+    """
 
     def __repr__(self) -> str:
         return f"Solver config node {self._id}: {self.name}"
@@ -225,7 +231,7 @@ class SolverConfigNode:
         """Translates a solver selection decision into the solver config dictionary.
         `optimized_only=True` ignores config fields that we do not optimize."""
         if len(self.children) == 0:
-            return self.name
+            return {self.name: {}}
 
         children_configs = [
             c.config_from_decision(decision, optimized_only=optimized_only)
@@ -285,8 +291,6 @@ class ConstantNode(SolverConfigNode):
     ) -> dict:
         if optimized_only:
             return {self.name: {}}
-        if len(self.params) == 0:
-            return self.name
         return {self.name: self.params}
 
 
@@ -306,7 +310,7 @@ class ForkNode(SolverConfigNode):
         super().__init__(children=list(self.options.values()), name=name)
 
     def copy(self) -> Self:
-        return type(self)(list(self.options.values()))
+        return type(self)(options=list(self.options.values()), name=self.name)
 
     def _get_submethods(self) -> Sequence[dict[int, str | ParametersSpace]]:
         all_options = []
@@ -349,21 +353,22 @@ class ForkNode(SolverConfigNode):
         return {self._id: child_name} | child_decision, child_params
 
 
-class ForkNodeNames:
+class DecisionNodeNames:
     krylov_solver_picker = "linear solver"
     preconditioner_picker = "preconditioner"
+    parameters_picker = "parameter picker"
 
 
 class KrylovSolverDecisionNode(ForkNode):
     """Represents a variety of available Krylov solver configurations to select from."""
 
-    type = ForkNodeNames.krylov_solver_picker
+    type = DecisionNodeNames.krylov_solver_picker
 
 
 class PreconditionerDecisionNode(ForkNode):
     """Represents a variety of available preconditioner configurations to select from."""
 
-    type = ForkNodeNames.preconditioner_picker
+    type = DecisionNodeNames.preconditioner_picker
 
 
 class KrylovSolverNode(SolverConfigNode):
@@ -397,45 +402,31 @@ class SplittingNode(SolverConfigNode):
     @classmethod
     def from_solvers_list(
         cls,
-        solver_list: Sequence[SolverConfigNode] | dict[str, Sequence[SolverConfigNode]],
+        solver_nodes: dict[str, Sequence[SolverConfigNode]],
         **kwargs,
     ):
         """Convenience method to assemble a space of a splitting node with various
         sub-solvers.
 
         """
-        if isinstance(solver_list, dict):
-            solver_node = {
-                key: KrylovSolverDecisionNode(solvers)
-                for key, solvers in solver_list.items()
-            }
-        else:
-            solver_node = KrylovSolverDecisionNode(solver_list)
-        return cls(solver_node=solver_node, **kwargs)
+        solvers_list = [
+            KrylovSolverDecisionNode(solvers, name=key)
+            for key, solvers in solver_nodes.items()
+        ]
+        return cls(solver_nodes=solvers_list, **kwargs)
 
     def __init__(
         self,
-        solver_node: SolverConfigNode | dict[str:SolverConfigNode],
+        solver_nodes: Sequence[SolverConfigNode],
         name: str = None,
         other_children: Optional[Sequence[SolverConfigNode]] = None,
     ):
-        # TODO: Something bad will happen here when it'll be more than two sub-solvers.
-        if isinstance(solver_node, SolverConfigNode):
-            solver_node = {"primary": solver_node, "secondary": solver_node}
-        self.linear_solver_node_primary = solver_node["primary"].copy()
-        self.linear_solver_node_secondary = solver_node["secondary"].copy()
-        self.solver_nodes = solver_node
-        self.linear_solver_node_primary.name = "primary"
-        self.linear_solver_node_secondary.name = "secondary"
+        self.solver_nodes = [node.copy() for node in solver_nodes]
         if other_children is None:
             other_children = []
         self.other_children = [child.copy() for child in other_children]
         super().__init__(
-            children=[
-                self.linear_solver_node_primary,
-                self.linear_solver_node_secondary,
-            ]
-            + other_children,
+            children=solver_nodes + other_children,
             name=name,
         )
 
@@ -448,7 +439,7 @@ class SplittingNode(SolverConfigNode):
 
     def copy(self) -> Self:
         return type(self)(
-            solver_node=self.solver_nodes,
+            solver_nodes=self.solver_nodes,
             name=self.name,
             other_children=self.other_children,
         )
@@ -457,7 +448,7 @@ class SplittingNode(SolverConfigNode):
 class ParametersNode(SolverConfigNode):
     """Represents numerical parametersof one algorithm to be optimized."""
 
-    type = "parameters_node"
+    type = DecisionNodeNames.parameters_picker
 
     def __init__(
         self,

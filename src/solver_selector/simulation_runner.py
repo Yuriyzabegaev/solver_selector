@@ -7,8 +7,9 @@ from solver_selector.data_structures import (
     NonlinearSolverStats,
     SolverSelectionData,
 )
-from time import time
 from abc import ABC, abstractmethod
+from pathlib import Path
+import numpy as np
 
 
 class Solver(ABC):
@@ -21,7 +22,14 @@ class Solver(ABC):
 
 
 class SimulationModel(ABC):
-    """Encapsulates simulation model."""
+    """A class for the simulation-software-independent solver selector to iteract
+    with the specific simulation software. What it does is:
+    - assembles a solver from a configuration.
+    - provides required data to the solver, e.g. degrees of freedom.
+    - characterizes the current state of the simulation by some context.
+    - tells when the simulation is done.
+
+    """
 
     @abstractmethod
     def get_context(self) -> ProblemContext:
@@ -31,9 +39,20 @@ class SimulationModel(ABC):
     def assemble_solver(self, solver_config: dict) -> Solver:
         """Build a solver algorithm that implements the provided configuration."""
 
-    @abstractmethod
     def before_time_step(self):
-        """Called before making new time step."""
+        """Called before starting the new time step.
+
+        Note: It is called before evaluating simulation characteristics with
+            `get_context`. The work of updating the simulation characteristics should be
+            done here.
+
+        """
+
+    def after_time_step(self, solver_selection_data: SolverSelectionData):
+        """Called after finishing the time step."""
+
+    def after_simulation(self):
+        """Called once when the simulation successfuly finishes."""
 
     @abstractmethod
     def is_complete(self) -> bool:
@@ -47,6 +66,10 @@ class SimulationRunner:
         reward_picker: RewardPicker,
         params: dict = None,
     ):
+        save_statistics_path = params.get("save_statistics_path")
+        if save_statistics_path is not None:
+            save_statistics_path = str(save_statistics_path)
+        self.save_statistics_path: str | None = save_statistics_path
         params = params or {}
         self.params = {"print_solver": False, "print_time": False} | params
         self.solver_selector: SolverSelector = solver_selector
@@ -59,7 +82,6 @@ class SimulationRunner:
         solver_selector = self.solver_selector
         solver_space = solver_selector.solver_space
         while not simulation.is_complete():
-
             # Inform the simulation that the new time step starts.
             simulation.before_time_step()
 
@@ -74,7 +96,7 @@ class SimulationRunner:
                 )
                 if self.params["print_solver"]:
                     solver_config_for_print = solver_space.config_from_decision(
-                        predicted_solver, optimized_only=True
+                        predicted_solver.decision, optimized_only=True
                     )
                     print(solver_space.format_config(solver_config_for_print))
 
@@ -87,7 +109,7 @@ class SimulationRunner:
                 performance_data = solver.make_time_step(simulation)
 
             with TimerContext() as timer_update_selector:
-                # Grading the performance with the provided reward function. 
+                # Grading the performance with the provided reward function.
                 rewards = self.reward_picker.pick_rewards(performance_data)
                 solver_selection_data = SolverSelectionData(
                     nonlinear_solver_stats=performance_data,
@@ -100,11 +122,18 @@ class SimulationRunner:
 
             self.select_solver_times.append(timer_select_solver.elapsed_time)
             self.update_selector_times.append(timer_update_selector.elapsed_time)
+
+            simulation.after_time_step(solver_selection_data)
+
             if self.params["print_time"]:
                 print(f"Select solver time: {timer_select_solver.elapsed_time:2e}")
                 print(f"Solve time: {timer_solve.elapsed_time:2e}")
                 print(f"Update selector time: {timer_update_selector.elapsed_time:2e}")
 
+            if self.save_statistics_path is not None:
+                np.save(self.save_statistics_path, self.solver_selector.memory)
+
+        simulation.after_simulation()
         print("Simulation finished successfully.")
 
 

@@ -71,7 +71,9 @@ def test_solver_space():
         }
     )
     fixed_stress = SplittingNode.from_solvers_list(
-        [no_solver], name="fixed_stress", other_children=[fixed_stress_params]
+        {"primary": [no_solver], "secondary": [no_solver]},
+        name="fixed_stress",
+        other_children=[fixed_stress_params],
     )
 
     precs = [ilu, amg, fixed_stress]
@@ -135,9 +137,49 @@ def test_solver_space():
 def test_check_unique_ids():
     ilu = SolverConfigNode(name="ilu")
     with raises(ValueError):
-        _ = SolverConfigNode(children=[ilu, ilu], name='head')
+        _ = SolverConfigNode(children=[ilu, ilu], name="head")
+
+
+def test_splitting():
+    subsolver1 = KrylovSolverNode([ConstantNode("amg")], name="gmres")
+    subsolver2 = KrylovSolverNode([ConstantNode("ilu")], name="bicgstab")
+    subsolver31 = ConstantNode("direct")
+    subsolver32 = ConstantNode("lu")
+    splitting = SplittingNode.from_solvers_list(
+        {
+            "subsolver1": [subsolver1],
+            "subsolver2": [subsolver2],
+            "subsolver3": [subsolver31, subsolver32],
+        },
+        name="fixed_stress",
+    )
+    all_solvers = splitting.get_all_solvers()
+    assert len(all_solvers) == 2
+
+    expected_configs = [
+        {
+            "fixed_stress": {
+                "subsolver1": {"gmres": {"amg": {}}},
+                "subsolver2": {"bicgstab": {"ilu": {}}},
+                "subsolver3": {"direct": {}},
+            }
+        },
+        {
+            "fixed_stress": {
+                "subsolver1": {"gmres": {"amg": {}}},
+                "subsolver2": {"bicgstab": {"ilu": {}}},
+                "subsolver3": {"lu": {}},
+            }
+        },
+    ]
+
+    for solver_template in all_solvers:
+        solver = solver_template.use_defaults()
+        config = splitting.config_from_decision(solver)
+        expected_configs.remove(config)
 
 
 if __name__ == "__main__":
     test_solver_space()
     test_check_unique_ids()
+    test_splitting()

@@ -1,1 +1,8 @@
 *.pyc
+__pycache__
+*.pvd
+*.vtu
+*.msh
+*.geo_unrolled
+times.json
+*.npy
