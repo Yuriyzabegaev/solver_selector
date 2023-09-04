@@ -8,8 +8,8 @@ from solver_selector.solver_space import (
 )
 from solvers_common import (
     DirectSolverNode,
-    GMRESNode,
     LinearSolver,
+    LinearSolverNames,
     SplittingSchur,
     SolverAssembler,
     Preconditioner,
@@ -32,16 +32,17 @@ class SplittingNames:
     secondary_subsolver = "secondary"
 
 
-class FixedStressNode(SplittingNode):
+class FixedStressNode(SolverConfigNode):
     type = SplittingNames.fixed_stress
 
     def __init__(
         self,
-        solver_nodes: Sequence[SolverConfigNode],
+        solver_nodes: dict[str, Sequence[SolverConfigNode]],
         l_factor: float | NumericalParameter,
     ) -> None:
         self.l_factor = l_factor
-        super().__init__(
+        self.solver_nodes = solver_nodes
+        splitting = SplittingNode.from_solvers_list(
             solver_nodes=solver_nodes,
             other_children=[
                 ParametersNode({"l_factor": self.l_factor}),
@@ -49,6 +50,7 @@ class FixedStressNode(SplittingNode):
                 ConstantNode("method", "upper"),
             ],
         )
+        super().__init__(children=[splitting])
 
     def copy(self):
         return type(self)(
@@ -76,23 +78,18 @@ def make_mandel_solver_space(l_factor: Literal["0", "1", "dynamic"]):
     #     preconditioners=[NodePreconditionerAMG(config={'max_iter': 10})],
     # )
 
-    return KrylovSolverDecisionNode(
-        options=[
-            GMRESNode.from_preconditioners_list(
-                preconditioners=[
-                    FixedStressNode.from_solvers_list(
-                        {
-                            SplittingNames.primary_subsolver: [prec_primary],
-                            SplittingNames.secondary_subsolver: [prec_secondary],
-                        },
-                        l_factor=l_factor,
-                    ),
-                ],
-                other_children=[
-                    ParametersNode({"tol": 1e-6, "restart": 30, "maxiter": 10})
-                ],
+    return KrylovSolverDecisionNode.from_preconditioners_list(
+        krylov_solver_name=LinearSolverNames.gmres,
+        preconditioners=[
+            FixedStressNode(
+                {
+                    SplittingNames.primary_subsolver: [prec_primary],
+                    SplittingNames.secondary_subsolver: [prec_secondary],
+                },
+                l_factor=l_factor,
             ),
-        ]
+        ],
+        other_children=[ParametersNode({"tol": 1e-6, "restart": 30, "maxiter": 10})],
     )
 
 

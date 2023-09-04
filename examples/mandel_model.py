@@ -54,30 +54,6 @@ class MandelSimulationModel(PorepySimulation):
         linear_solver = self.solver_assembler.assemble_linear_solver(solver_config)
         return PorepyNewtonSolver(linear_solver)
 
-    def is_complete(self) -> bool:
-        time_manager = self.porepy_setup.time_manager
-        return time_manager.time >= time_manager.time_final
-
-    def before_time_step(self) -> None:
-        model = self.porepy_setup
-        print(
-            "\nTime step {} at time {:.1e} of {:.1e} with time step {:.1e}".format(
-                model.time_manager.time_index,
-                model.time_manager.time,
-                model.time_manager.time_final,
-                model.time_manager.dt,
-            )
-        )
-        model.before_nonlinear_loop()
-
-    def after_time_step(self, solver_selection_data: SolverSelectionData):
-        model = self.porepy_setup
-        model.time_manager.increase_time()
-        model.time_manager.increase_time_index()
-
-    def after_simulation(self):
-        self.porepy_setup.after_simulation()
-
     def get_primary_secondary_indices(
         self, primary_variable: str
     ) -> tuple[np.ndarray, np.ndarray]:
@@ -136,18 +112,6 @@ class MandelSimulationModel(PorepySimulation):
         diagonal_approx /= dt
 
         return scipy.sparse.diags(diagonal_approx)
-
-    def _compute_cfl(self):
-        setup = self.porepy_setup
-        subdomains = setup.mdg.subdomains()
-        velosity = setup.darcy_flux(subdomains) / setup.fluid_viscosity(subdomains)
-        velosity = velosity.evaluate(setup.equation_system).val
-        length = setup.mdg.subdomains()[0].face_areas
-        time_step = setup.time_manager.dt
-        CFL = velosity * time_step / length
-        CFL_max = abs(CFL).max()
-        CFL_mean = abs(CFL).mean()
-        return CFL_max, CFL_mean
 
 
 time_manager = pp.TimeManager(

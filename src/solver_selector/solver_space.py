@@ -21,13 +21,6 @@ class NumericalParameter:
 
 
 @dataclass(kw_only=True, slots=True, frozen=True)
-class CategoryParameter:
-    options: Sequence[str]
-    default: str
-    is_optimized: bool = True
-
-
-@dataclass(kw_only=True, slots=True, frozen=True)
 class ParametersSpace:
     """Represents numerical and categorical parameters of one algorithm node, e.g.
     paramets of ILU preconditioner."""
@@ -248,21 +241,16 @@ class SolverConfigNode:
         self, config: dict
     ) -> tuple[dict[int, str], dict[int, dict[str, number]]]:
         """Traverse config to find what subsolvers and what parameters were selected."""
-        items = list(config.items())
-        assert len(items) == 1, "Don't know what to do"
-        node_name, subconfig = items[0]
-
-        assert node_name == self.name
-
-        if len(self.children) == 0:
-            return {}, {}
-
+        if self.name in config:
+            config = config[self.name]
         submethods = []
         subparams = []
+
         for child in self.children:
-            # child_name = child.name
-            # child_subconfig = subconfig[child_name]
-            # child_config = {child_name: child_subconfig}
+            if child.name in config:
+                subconfig = config[child.name]
+            else:
+                subconfig = config
             child_submethods, child_subparams = child._parse_config_recursively(
                 subconfig
             )
@@ -283,8 +271,6 @@ class ConstantNode(SolverConfigNode):
         super().__init__(children=None, name=name)
         if params is None:
             params = {}
-        elif isinstance(params, str):
-            params = {params: {}}
         self.params = params or {}
 
     def copy(self) -> Self:
@@ -302,6 +288,7 @@ class DecisionNodeNames:
     fork_node = "linear solver"
     preconditioner = "preconditioner"
     parameters_picker = "parameter picker"
+    splitting = "splitting"
 
 
 class ForkNode(SolverConfigNode):
@@ -319,6 +306,7 @@ class ForkNode(SolverConfigNode):
         name: str = None,
     ):
         self.options = {opt.name: opt.copy() for opt in options}
+        assert len(self.options) == len(options), "Options must have unique names"
         super().__init__(children=list(self.options.values()), name=name)
 
     def copy(self) -> Self:
@@ -350,8 +338,6 @@ class ForkNode(SolverConfigNode):
     def _parse_config_recursively(
         self, config: dict
     ) -> tuple[dict[int, str], dict[int, dict[str, number]]]:
-        # if isinstance(config, str):
-        #     subconfig = {subconfig: {}}
         if self.name in config:
             config = config[self.name]
 
@@ -374,13 +360,19 @@ class KrylovSolverDecisionNode(ForkNode):
 
     @classmethod
     def from_preconditioners_list(
-        self, krylov_solver_name: str, preconditioners: Sequence[SolverConfigNode]
+        self,
+        krylov_solver_name: str,
+        preconditioners: Sequence[SolverConfigNode],
+        other_children: Sequence[SolverConfigNode] = None,
     ) -> "KrylovSolverDecisionNode":
         """Use the given krylov solver and one of the given preconditioners"""
         return KrylovSolverDecisionNode(
             options=[
-                KrylovSolverNode(name=krylov_solver_name, children=[prec.copy()])
-                for prec in preconditioners
+                KrylovSolverNode.from_preconditioners_list(
+                    name=krylov_solver_name,
+                    preconditioners=[prec for prec in preconditioners],
+                    other_children=other_children,
+                )
             ]
         )
 
@@ -419,6 +411,8 @@ class KrylovSolverNode(SolverConfigNode):
 class SplittingNode(SolverConfigNode):
     """Represents one specific decoupling/splitting algorithm."""
 
+    type = DecisionNodeNames.splitting
+
     @classmethod
     def from_solvers_list(
         cls,
@@ -456,6 +450,21 @@ class SplittingNode(SolverConfigNode):
             if len(arms := c._get_submethods()) > 0:
                 result.append(arms)
         return [_merge_dicts(pair) for pair in tuple(product(*result))]
+
+    def config_from_decision(
+        self, decision: Decision, optimized_only: bool = False
+    ) -> dict:
+        config = super().config_from_decision(decision, optimized_only)
+        if self.name == DecisionNodeNames.splitting:
+            return config[self.name]
+        return config
+
+    def _parse_config_recursively(
+        self, config: dict
+    ) -> tuple[dict[int, str], dict[int, dict[str, number]]]:
+        if self.name in config:
+            config = config[self.name]
+        return super()._parse_config_recursively(config)
 
     def copy(self) -> Self:
         return type(self)(

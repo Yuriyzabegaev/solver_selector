@@ -36,30 +36,11 @@ class PreconditionerNames:
     none = "none"
 
 
-class GMRESNode(KrylovSolverNode):
-    type = LinearSolverNames.gmres
-
-
 class NodePreconditionerILU(SolverConfigNode):
     type = PreconditionerNames.ilu
 
-    def __init__(
-        self, name: str = None, drop_tol: float | NumericalParameter = 1e-8
-    ) -> None:
-        self.drop_tol = drop_tol
-        self.params = ParametersNode(
-            name="ilu_params", continuous_actions={"drop_tol": drop_tol}
-        )
-        super().__init__(
-            children=[self.params],
-            name=name or self.type,
-        )
 
-    def copy(self) -> Self:
-        return type(self)(name=self.name, drop_tol=self.drop_tol)
-
-
-class NodePreconditionerAMG(ConstantNode):
+class NodePreconditionerAMG(SolverConfigNode):
     type = PreconditionerNames.amg
 
 
@@ -261,7 +242,7 @@ class LinearSolverGMRES(LinearSolver):
     ) -> None:
         # maxiter is a number of outer GMRES iterations.
         for param in ["restart", "tol", "maxiter"]:
-            assert param in config
+            assert param in config, "Parameter not provided."
         super().__init__(preconditioner=preconditioner, config=config)
 
         self._num_iters: int = 0
