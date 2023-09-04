@@ -37,7 +37,9 @@ def make_solver_space():
             ),
         }
     )
-    gmres = KrylovSolverNode(children=[ilu, gmres_params], name="gmres")
+    gmres = KrylovSolverNode.from_preconditioners_list(
+        preconditioners=[ilu], other_children=[gmres_params], name="gmres"
+    )
     bicgstab = KrylovSolverNode(children=[ilu], name="bicgstab")
     solver_space = KrylovSolverDecisionNode([gmres, bicgstab])
     assert len(solver_space.get_all_solvers()) == 2

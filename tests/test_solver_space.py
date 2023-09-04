@@ -11,36 +11,20 @@ from solver_selector.solver_space import (
 
 
 EXPECTED_CONFIG = {
-    "linear solver": {
-        "bicgstab": {
-            "preconditioner": {
-                "fixed_stress": {
-                    "primary": {
-                        "no_solver": {
-                            "preconditioner": {
-                                "ilu": {
-                                    "parameters_node": {
-                                        "drop_tol": 1e-05,
-                                        "param_1": 10,
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "secondary": {
-                        "no_solver": {
-                            "preconditioner": {
-                                "ilu": {
-                                    "parameters_node": {
-                                        "drop_tol": 1e-05,
-                                        "param_1": 10,
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "parameters_node": {"l_factor": 1},
-                }
+    "bicgstab": {
+        "preconditioner": {
+            "fixed_stress": {
+                "primary": {
+                    "no_solver": {
+                        "preconditioner": {"ilu": {"drop_tol": 1e-05, "param_1": 10}}
+                    }
+                },
+                "secondary": {
+                    "no_solver": {
+                        "preconditioner": {"ilu": {"drop_tol": 1e-05, "param_1": 10}}
+                    }
+                },
+                "l_factor": 1,
             }
         }
     }

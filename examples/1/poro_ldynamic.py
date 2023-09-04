@@ -1,11 +1,11 @@
 from mandel_model import make_mandel_setup
-from mandel_solvers import make_poro_solver_space
+from mandel_solvers import make_mandel_solver_space
 from solver_selector.simulation_runner import make_simulation_runner
 from data_scripts import append_experiment_name
 
 experiment_path = append_experiment_name(__file__)
 print("Starting experiment:", experiment_path.name)
-solver_space = make_poro_solver_space(l_factor="dynamic")
+solver_space = make_mandel_solver_space(l_factor="dynamic")
 simulation = make_mandel_setup()
 simulation_runner = make_simulation_runner(
     solver_space=solver_space,

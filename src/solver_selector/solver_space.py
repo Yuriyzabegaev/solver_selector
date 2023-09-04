@@ -260,11 +260,11 @@ class SolverConfigNode:
         submethods = []
         subparams = []
         for child in self.children:
-            child_name = child.name
-            child_subconfig = subconfig[child_name]
-            child_config = {child_name: child_subconfig}
+            # child_name = child.name
+            # child_subconfig = subconfig[child_name]
+            # child_config = {child_name: child_subconfig}
             child_submethods, child_subparams = child._parse_config_recursively(
-                child_config
+                subconfig
             )
             submethods.append(child_submethods)
             subparams.append(child_subparams)
@@ -279,8 +279,12 @@ class ConstantNode(SolverConfigNode):
 
     type = "constant config node"
 
-    def __init__(self, name: str, params: dict = None) -> None:
+    def __init__(self, name: str, params: dict | str = None) -> None:
         super().__init__(children=None, name=name)
+        if params is None:
+            params = {}
+        elif isinstance(params, str):
+            params = {params: {}}
         self.params = params or {}
 
     def copy(self) -> Self:
@@ -294,12 +298,20 @@ class ConstantNode(SolverConfigNode):
         return {self.name: self.params}
 
 
+class DecisionNodeNames:
+    fork_node = "linear solver"
+    preconditioner = "preconditioner"
+    parameters_picker = "parameter picker"
+
+
 class ForkNode(SolverConfigNode):
     """Solver config node, which represent a variety of sub-solvers. The solver
     selection algorithm must select one of them. Thus, this is a categorical decision
     to make.
 
     """
+
+    type = DecisionNodeNames.fork_node
 
     def __init__(
         self,
@@ -330,18 +342,22 @@ class ForkNode(SolverConfigNode):
         config_tree = self.options[my_decision].config_from_decision(
             decision, optimized_only=optimized_only
         )
+        if self.name == DecisionNodeNames.fork_node:
+            # If no specific name, just return the parameters
+            return config_tree
         return {self.name: config_tree}
 
     def _parse_config_recursively(
         self, config: dict
     ) -> tuple[dict[int, str], dict[int, dict[str, number]]]:
-        subconfig = config[self.name]
-        if isinstance(subconfig, str):
-            subconfig = {subconfig: {}}
+        # if isinstance(config, str):
+        #     subconfig = {subconfig: {}}
+        if self.name in config:
+            config = config[self.name]
 
-        subconfig_items = list(subconfig.items())
-        assert len(subconfig_items) == 1, "Don't know what to do"
-        child_name, _ = subconfig_items[0]
+        config_items = list(config.items())
+        assert len(config_items) == 1, "Don't know what to do"
+        child_name, _ = config_items[0]
         if child_name not in self.options:
             raise ValueError(
                 f"Inconsistent solver space: Node {self._id}: {self.name}"
@@ -349,26 +365,30 @@ class ForkNode(SolverConfigNode):
             )
 
         child = self.options[child_name]
-        child_decision, child_params = child._parse_config_recursively(subconfig)
+        child_decision, child_params = child._parse_config_recursively(config)
         return {self._id: child_name} | child_decision, child_params
-
-
-class DecisionNodeNames:
-    krylov_solver_picker = "linear solver"
-    preconditioner_picker = "preconditioner"
-    parameters_picker = "parameter picker"
 
 
 class KrylovSolverDecisionNode(ForkNode):
     """Represents a variety of available Krylov solver configurations to select from."""
 
-    type = DecisionNodeNames.krylov_solver_picker
+    @classmethod
+    def from_preconditioners_list(
+        self, krylov_solver_name: str, preconditioners: Sequence[SolverConfigNode]
+    ) -> "KrylovSolverDecisionNode":
+        """Use the given krylov solver and one of the given preconditioners"""
+        return KrylovSolverDecisionNode(
+            options=[
+                KrylovSolverNode(name=krylov_solver_name, children=[prec.copy()])
+                for prec in preconditioners
+            ]
+        )
 
 
 class PreconditionerDecisionNode(ForkNode):
     """Represents a variety of available preconditioner configurations to select from."""
 
-    type = DecisionNodeNames.preconditioner_picker
+    type = DecisionNodeNames.preconditioner
 
 
 class KrylovSolverNode(SolverConfigNode):
@@ -479,27 +499,27 @@ class ParametersNode(SolverConfigNode):
     ) -> dict:
         actions = decision.parameters[self._id]
 
-        action_dict = {}
-        for action_name, action_action in actions.items():
-            parameter_data = self.parameters.numerical[action_name]
+        parameters_dict = {}
+        for parameter_name, parameter in actions.items():
+            parameter_data = self.parameters.numerical[parameter_name]
             if optimized_only and not parameter_data.is_optimized:
                 continue
+            parameters_dict[parameter_name] = parameter
 
-            action_dict[action_name] = action_action
-
-        return {self.name: action_dict}
+        if self.name == DecisionNodeNames.parameters_picker:
+            # If no specific name, just return the parameters
+            return parameters_dict
+        return {self.name: parameters_dict}
 
     def _parse_config_recursively(
         self, config: dict
     ) -> tuple[dict[int, str], dict[int, dict[str, number]]]:
-        config_items = list(config.items())
-        assert len(config_items) == 1
-        config_name, config_entries = config_items[0]
-        assert config_name == self.name
+        if self.name in config:
+            config = config[self.name]
 
         actions = {}
         for action_name in self.parameters.numerical.keys():
-            value = config_entries[action_name]
+            value = config[action_name]
             actions[action_name] = value
 
         return {}, {self._id: actions}

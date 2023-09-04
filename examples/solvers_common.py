@@ -4,7 +4,6 @@ from solver_selector.solver_space import (
     ParametersNode,
     ConstantNode,
     NumericalParameter,
-    DecisionNodeNames,
 )
 from solver_selector.simulation_runner import SimulationModel
 from typing_extensions import Self
@@ -385,22 +384,18 @@ class SolverAssembler:
     def assemble_linear_solver(self, linear_solver_config: dict) -> LinearSolver:
         linear_solver_type, linear_solver_config = list(linear_solver_config.items())[0]
 
-        preconditioner_config = linear_solver_config.get(
-            DecisionNodeNames.preconditioner_picker, {}
-        )
-        parameters = linear_solver_config.get(DecisionNodeNames.parameters_picker, {})
-
+        preconditioner_config = linear_solver_config.get("preconditioner", {})
         if len(preconditioner_config) == 0:
             preconditioner_config = {PreconditionerNames.none: {}}
         preconditioner = self.assemble_preconditioner(preconditioner_config)
 
         match linear_solver_type:
             case LinearSolverNames.none:
-                solver = NoneLinearSolver(preconditioner, config=parameters)
+                solver = NoneLinearSolver(preconditioner, config=linear_solver_config)
             case LinearSolverNames.gmres:
-                solver = LinearSolverGMRES(preconditioner, config=parameters)
+                solver = LinearSolverGMRES(preconditioner, config=linear_solver_config)
             case LinearSolverNames.direct:
-                solver = LinearSolverDirect(preconditioner, config=parameters)
+                solver = LinearSolverDirect(preconditioner, config=linear_solver_config)
             case _:
                 raise ValueError(linear_solver_type)
         return solver
@@ -409,14 +404,13 @@ class SolverAssembler:
         preconditioner_type, preconditioner_config = list(
             preconditioner_config.items()
         )[0]
-        params = preconditioner_config.get(DecisionNodeNames.parameters_picker, {})
         match preconditioner_type:
             case PreconditionerNames.amg:
-                preconditioner = PreconditionerPetscAMG(params)
+                preconditioner = PreconditionerPetscAMG(preconditioner_config)
             case PreconditionerNames.ilu:
-                preconditioner = PreconditionerPetscILU(params)
+                preconditioner = PreconditionerPetscILU(preconditioner_config)
             case PreconditionerNames.none:
-                preconditioner = NonePreconditioner(params)
+                preconditioner = NonePreconditioner(preconditioner_config)
             case _:
                 raise ValueError(preconditioner_type)
         return preconditioner

@@ -51,11 +51,7 @@ class MandelSimulationModel(PorepySimulation):
         )
 
     def assemble_solver(self, solver_config: dict) -> Solver:
-        linear_solver_config = solver_config[DecisionNodeNames.krylov_solver_picker]
-
-        linear_solver = self.solver_assembler.assemble_linear_solver(
-            linear_solver_config
-        )
+        linear_solver = self.solver_assembler.assemble_linear_solver(solver_config)
         return PorepyNewtonSolver(linear_solver)
 
     def is_complete(self) -> bool:

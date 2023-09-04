@@ -24,7 +24,6 @@ def generate_synthetic_data(
             nonlinear_solver_stats=NonlinearSolverStats(
                 is_converged=True,
                 is_diverged=False,
-                raised_error=False,
                 num_nonlinear_iterations=num_linear_systems,
                 nonlinear_error=[0, 0],
                 iterations=[

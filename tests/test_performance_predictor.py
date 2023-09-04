@@ -48,7 +48,8 @@ def test_parameters_space():
     assert params_space.param_names == ["drop_tol", "param_1", "restart"]
     assert params_space.bounds == [(1e-08, 0.01), (10, 10), (10, 100)]
     assert params_space.defaults == [1e-05, 10, 30]
-    assert params_space.node_ids == [0, 0, 2]
+    assert params_space.node_ids[0] == params_space.node_ids[1]
+    assert params_space.node_ids[0] != params_space.node_ids[2]
     assert params_space.is_optimized == [True, False, True]
 
     x_space = params_space.make_parameters_grid(num_samples=30)

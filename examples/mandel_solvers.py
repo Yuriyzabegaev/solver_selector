@@ -4,10 +4,7 @@ from solver_selector.solver_space import (
     SolverConfigNode,
     NumericalParameter,
     ParametersNode,
-    KrylovSolverNode,
     ConstantNode,
-    CategoryParameter,
-    DecisionNodeNames,
 )
 from solvers_common import (
     DirectSolverNode,
@@ -18,7 +15,7 @@ from solvers_common import (
     Preconditioner,
 )
 
-from typing import Sequence, Optional, Literal, TYPE_CHECKING
+from typing import Sequence, Literal, TYPE_CHECKING
 
 
 if TYPE_CHECKING:
@@ -60,7 +57,7 @@ class FixedStressNode(SplittingNode):
         )
 
 
-def make_poro_solver_space(l_factor: Literal["0", "1", "dynamic"]):
+def make_mandel_solver_space(l_factor: Literal["0", "1", "dynamic"]):
     if l_factor == "0":
         l_factor = 0
     elif l_factor == "1":
@@ -91,7 +88,9 @@ def make_poro_solver_space(l_factor: Literal["0", "1", "dynamic"]):
                         l_factor=l_factor,
                     ),
                 ],
-                other_children=[ParametersNode({"tol": 1e-6, "restart": 30, 'maxiter': 10})],
+                other_children=[
+                    ParametersNode({"tol": 1e-6, "restart": 30, "maxiter": 10})
+                ],
             ),
         ]
     )
@@ -109,7 +108,7 @@ class SplittingFixedStress(SplittingSchur):
         config: dict,
     ):
         self.simulation: "MandelSimulationModel" = mandel_problem
-        for param in ['primary_variable', 'l_factor']:
+        for param in ["primary_variable", "l_factor"]:
             assert param in config
         super().__init__(linear_solver_primary, linear_solver_secondary, config)
 
@@ -156,12 +155,10 @@ class MandelSolverAssembler(SolverAssembler):
             linear_solver_secondary = self.assemble_linear_solver(
                 linear_solver_config=preconditioner_params[secondary]
             )
-            params = preconditioner_params.get(DecisionNodeNames.parameters_picker, {})
-            params.update(preconditioner_params)
             return SplittingFixedStress(
                 mandel_problem=self.simulation,
                 linear_solver_primary=linear_solver_primary,
                 linear_solver_secondary=linear_solver_secondary,
-                config=params,
+                config=preconditioner_params,
             )
         return super().assemble_preconditioner(preconditioner_config)

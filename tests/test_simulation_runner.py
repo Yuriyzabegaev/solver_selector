@@ -10,7 +10,6 @@ from solver_selector.simulation_runner import (
 from solver_selector.solver_space import (
     ConstantNode,
     KrylovSolverDecisionNode,
-    DecisionNodeNames,
 )
 from tests_common import DummpyProblemContext
 
@@ -62,8 +61,7 @@ class DummySimulation(SimulationModel):
         return DummpyProblemContext()
 
     def assemble_solver(self, solver_config: dict) -> Solver:
-        subconfig = solver_config[DecisionNodeNames.krylov_solver_picker]
-        solver_name = list(subconfig.keys())[0]
+        solver_name = list(solver_config.keys())[0]
         if solver_name == "solver1":
             return DummySolver1()
         elif solver_name == "solver2":
