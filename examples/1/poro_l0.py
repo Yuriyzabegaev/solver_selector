@@ -6,7 +6,7 @@ from data_scripts import append_experiment_name
 experiment_path = append_experiment_name(__file__)
 print("Starting experiment:", experiment_path.name)
 solver_space = make_mandel_solver_space(l_factor="0")
-simulation = make_mandel_setup()
+simulation = make_mandel_setup(model_size='small')
 simulation_runner = make_simulation_runner(
     solver_space=solver_space, params={"save_statistics_path": experiment_path}
 )

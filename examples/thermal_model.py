@@ -653,6 +653,7 @@ solid_constants = pp.SolidConstants(
 
 def make_thermal_setup():
     schedule = np.array(np.array(pumping_schedule).flatten().tolist() + [T_END])
+    schedule = [0, dt]
     porepy_setup = ThermalSetup(
         {
             "material_constants": {

@@ -135,7 +135,7 @@ class SplittingCPR(Preconditioner):
 
     def update(self, mat):
         super().update(mat)
-        prim_ind, sec_ind = self.problem_description.get_primary_secondary_indices(
+        prim_ind, sec_ind = self.thermal_problem.get_primary_secondary_indices(
             self.config["primary_variable"]
         )
         self.primary_ind = prim_ind

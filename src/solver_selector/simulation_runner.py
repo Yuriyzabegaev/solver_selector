@@ -8,8 +8,8 @@ from solver_selector.data_structures import (
     SolverSelectionData,
 )
 from abc import ABC, abstractmethod
-from pathlib import Path
 import numpy as np
+from typing import Sequence
 
 
 class Solver(ABC):
@@ -172,6 +172,16 @@ def make_simulation_runner(
         solver_space=solver_space,
         predictors=predictors,
     )
+
+    load_statistics_paths: Sequence[str]
+    if load_statistics_paths := params.get("load_statistics_paths", None):
+        data = []
+        print("Warm start using data:")
+        for path in load_statistics_paths:
+            print(path)
+            data.extend(np.load(path, allow_pickle=True).tolist())
+        solver_selector.learn_performance_offline(selection_dataset=data)
+
     return SimulationRunner(
         solver_selector=solver_selector, reward_picker=reward_picker, params=params
     )

@@ -4,11 +4,11 @@ import scipy.sparse
 from mandel_biot import MandelSetup as MandelSetup_
 from scipy.sparse import csr_matrix
 from solver_selector.simulation_runner import Solver
-from solver_selector.solver_space import DecisionNodeNames
-from solver_selector.data_structures import ProblemContext, SolverSelectionData
+from solver_selector.data_structures import ProblemContext
 from mandel_solvers import MandelSolverAssembler
 from porepy_common import PorepyNewtonSolver, PorepySimulation
 from dataclasses import dataclass
+from typing import Literal
 
 
 class MandelSetup(MandelSetup_):
@@ -115,7 +115,8 @@ class MandelSimulationModel(PorepySimulation):
 
 
 time_manager = pp.TimeManager(
-    schedule=[0, 1e3],
+    # schedule=[0, 1e3],
+    schedule=[0, 10],
     dt_init=10,
     constant_dt=True,
 )
@@ -126,9 +127,6 @@ units = pp.Units(
 )
 
 ls = 1 / units.m  # length scaling
-mesh_arguments = {
-    "cell_size": 1 * ls,
-}
 
 mandel_solid_constants = {
     "lame_lambda": 1.65e9 * 1e-6,  # [MPa]
@@ -144,10 +142,23 @@ mandel_fluid_constants = {
 }
 
 
-def make_mandel_setup() -> MandelSimulationModel:
+def make_mandel_setup(
+    model_size: Literal["small", "medium", "large"]
+) -> MandelSimulationModel:
+    if model_size == "small":
+        cell_size = 1
+    elif model_size == "medium":
+        cell_size = 0.75
+    elif model_size == "large":
+        cell_size = 0.5
+    else:
+        raise ValueError(model_size)
+
     porepy_setup = MandelSetup(
         {
-            "meshing_arguments": mesh_arguments,
+            "meshing_arguments": {
+                "cell_size": cell_size * ls,
+            },
             "time_manager": time_manager,
             "material_constants": {
                 "solid": pp.SolidConstants(mandel_solid_constants),

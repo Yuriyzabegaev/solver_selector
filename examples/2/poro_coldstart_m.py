@@ -5,10 +5,11 @@ from data_scripts import append_experiment_name
 
 experiment_path = append_experiment_name(__file__)
 print("Starting experiment:", experiment_path.name)
-solver_space = make_mandel_solver_space(l_factor="1")
-simulation = make_mandel_setup(model_size="small")
+solver_space = make_mandel_solver_space(l_factor="dynamic")
+simulation = make_mandel_setup(model_size="medium")
 simulation_runner = make_simulation_runner(
-    solver_space=solver_space, params={"save_statistics_path": experiment_path}
+    solver_space=solver_space,
+    params={"save_statistics_path": experiment_path, "print_solver": True},
 )
 
 simulation_runner.run_simulation(simulation)
