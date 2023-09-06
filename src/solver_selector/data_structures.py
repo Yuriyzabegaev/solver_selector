@@ -58,5 +58,6 @@ class SolverSelectionData:
 
     nonlinear_solver_stats: NonlinearSolverStats
     prediction: PerformancePredictionData
+    config: dict
     rewards: tuple[float]
     work_time: float

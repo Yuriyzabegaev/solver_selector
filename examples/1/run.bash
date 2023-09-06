@@ -12,9 +12,11 @@ targets=(
     "poro_l0.py"
     "poro_l1.py"
     "poro_ldynamic.py"
+    "poro_lrandom.py"
     "thermal_cpr.py"
     "thermal_schur.py"
     "thermal_dynamic.py"
+    "thermal_random.py"
 )
 
 for target in ${targets[@]}; do

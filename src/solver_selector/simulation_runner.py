@@ -4,6 +4,7 @@ from solver_selector.utils import TimerContext
 from solver_selector.performance_predictor import (
     PerformancePredictorEpsGreedy,
     PerformancePredictorGaussianProcess,
+    PerformancePredictorRandom,
 )
 from solver_selector.data_structures import (
     ProblemContext,
@@ -117,6 +118,7 @@ class SimulationRunner:
                 solver_selection_data = SolverSelectionData(
                     nonlinear_solver_stats=performance_data,
                     prediction=predicted_solver,
+                    config=solver_config.copy(),
                     rewards=rewards,
                     work_time=timer_solve.elapsed_time,
                 )
@@ -176,6 +178,16 @@ def make_simulation_runner(
         for solver_template in all_solvers:
             predictors.append(
                 PerformancePredictorGaussianProcess(
+                    decision_template=solver_template,
+                    samples_before_fit=samples_before_fit,
+                )
+            )
+
+    elif predictor == "random":
+        print("Using random exploration (it does not learn anything!)")
+        for solver_template in all_solvers:
+            predictors.append(
+                PerformancePredictorRandom(
                     decision_template=solver_template,
                     samples_before_fit=samples_before_fit,
                 )

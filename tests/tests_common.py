@@ -16,7 +16,7 @@ class DummpyProblemContext(ProblemContext):
 
 
 def generate_synthetic_data(
-    prediction: PerformancePredictionData, seed: int
+    prediction: PerformancePredictionData, config: dict, seed: int
 ) -> Sequence[SolverSelectionData]:
     return [
         SolverSelectionData(
@@ -40,6 +40,7 @@ def generate_synthetic_data(
                 ],
             ),
             prediction=prediction,
+            config=config,
             rewards=[i * 2 + seed for i in range(1, num_linear_systems + 1)],
         )
         for num_linear_systems in [4, 6]

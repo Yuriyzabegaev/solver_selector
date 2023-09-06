@@ -17,7 +17,7 @@ from solver_selector.performance_predictor import (
 from tests_common import DummpyProblemContext, generate_synthetic_data
 
 
-def make_solver_template():
+def make_solver_space() -> SolverConfigNode:
     ilu_params = ParametersNode(
         {
             "drop_tol": NumericalParameter(
@@ -38,14 +38,14 @@ def make_solver_template():
             ),
         }
     )
-    gmres = KrylovSolverNode(children=[ilu, gmres_params], name="gmres")
-    solver_templates = gmres.get_all_solvers()
-    assert len(solver_templates) == 1
-    return solver_templates[0]
+    return KrylovSolverNode(children=[ilu, gmres_params], name="gmres")
 
 
 def test_parameters_space():
-    params_space = ParametersSpace(make_solver_template())
+    solver_space = make_solver_space()
+    solver_templates = solver_space.get_all_solvers()
+    assert len(solver_templates) == 1
+    params_space = ParametersSpace(solver_templates[0])
     assert params_space.param_names == ["drop_tol", "param_1", "restart"]
     assert params_space.bounds == [(1e-08, 0.01), (10, 10), (10, 100)]
     assert params_space.defaults == [1e-05, 10, 30]
@@ -81,7 +81,10 @@ def make_gp(solver_template):
 
 @pytest.mark.parametrize("make_performance_predictor", [make_eps_greedy, make_gp])
 def test_performance_predictor(make_performance_predictor):
-    solver_template = make_solver_template()
+    solver_space = make_solver_space()
+    solver_templates = solver_space.get_all_solvers()
+    assert len(solver_templates) == 1
+    solver_template = solver_templates[0]
     performance_predictor = make_performance_predictor(solver_template)
     context = DummpyProblemContext()
 
@@ -91,7 +94,11 @@ def test_performance_predictor(make_performance_predictor):
 
     # Online learning process
     np.random.seed(42)  # Maybe something random happens inside sklearn.
-    simulation_data = generate_synthetic_data(prediction=prediction, seed=0)
+    simulation_data = generate_synthetic_data(
+        prediction=prediction,
+        config=solver_space.config_from_decision(prediction.decision),
+        seed=0,
+    )
     for time_step_data in simulation_data:
         performance_predictor.online_update(time_step_data)
 

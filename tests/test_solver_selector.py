@@ -70,7 +70,13 @@ def test_sovler_selector():
     dataset: list[SolverSelectionData] = []
     for i, predictor in enumerate(solver_selector.predictors):
         prediction = predictor.select_solver_parameters(context)
-        dataset.extend(generate_synthetic_data(prediction=prediction, seed=i * 10))
+        dataset.extend(
+            generate_synthetic_data(
+                prediction=prediction,
+                config=solver_space.config_from_decision(prediction.decision),
+                seed=i * 10,
+            )
+        )
 
     # Online learning
     np.random.seed(42)  # Randomness in sklearn

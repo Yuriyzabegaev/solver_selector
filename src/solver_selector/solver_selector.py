@@ -98,7 +98,8 @@ class SolverSelector:
         """
         datasets_for_predictors = [[] for _ in range(len(self.predictors))]
         for selection_data in selection_dataset:
-            decision_idx = self._get_solver_idx(selection_data.prediction.decision)
+            decision = self.solver_space.decision_from_config(selection_data.config)
+            decision_idx = self._get_solver_idx(decision)
             datasets_for_predictors[decision_idx].append(selection_data)
 
         for dataset, predictor in zip(datasets_for_predictors, self.predictors):

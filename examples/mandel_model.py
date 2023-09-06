@@ -116,7 +116,8 @@ class MandelSimulationModel(PorepySimulation):
 
 time_manager = pp.TimeManager(
     # schedule=[0, 1e3],
-    schedule=[0, 10],
+    schedule=[0, 1e2],
+    # schedule=[0, 10],
     dt_init=10,
     constant_dt=True,
 )

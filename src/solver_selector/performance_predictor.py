@@ -212,7 +212,7 @@ class PerformancePredictorEpsGreedy(PerformancePredictor):
         decision = self.parameters_space.decision_from_array(parameters_chosen)
 
         return PerformancePredictionData(
-            score=expectation, decision=decision, context=context
+            score=float(expectation), decision=decision, context=context
         )
 
     def select_solver_parameters(
@@ -266,5 +266,22 @@ class PerformancePredictorGaussianProcess(PerformancePredictor):
         decision = self.parameters_space.decision_from_array(parameters_chosen)
 
         return PerformancePredictionData(
-            score=expectation, decision=decision, context=context
+            score=float(expectation), decision=decision, context=context
+        )
+
+
+class PerformancePredictorRandom(PerformancePredictor):
+    def select_solver_parameters(
+        self, context: ProblemContext
+    ) -> PerformancePredictionData:
+        """Makes a random choice with a random score."""
+        if self.x_space.size > 0:
+            choice = np.random.choice(self.x_space.shape[0], size=1).item()
+            parameters_chosen = self.x_space[choice]
+        else:
+            parameters_chosen = np.zeros(0)
+        decision = self.parameters_space.decision_from_array(parameters_chosen)
+        score = np.random.random() * DEFAULT_EXPECTATION
+        return PerformancePredictionData(
+            score=float(score), decision=decision, context=context
         )
