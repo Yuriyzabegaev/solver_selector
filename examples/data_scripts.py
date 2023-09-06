@@ -8,6 +8,7 @@ def append_experiment_name(path: str) -> Path:
     path: Path = Path(path).absolute()
     filename = path.name
     experiment_dir = path.parent / "performance"
+    experiment_dir.mkdir(exist_ok=True)
     name = filename.removesuffix(".npy").removesuffix(".py")
     ids = ["-1"]
     for file in os.listdir(experiment_dir):
@@ -22,7 +23,7 @@ def append_experiment_name(path: str) -> Path:
 
 
 def get_newest_data_paths(experiment_name: str, n_newest=3) -> Sequence[str]:
-    name = experiment_name.removesuffix(".py").removesuffix(".npy")
+    name = Path(experiment_name).name.removesuffix(".py").removesuffix(".npy")
     work_dir = Path(experiment_name).absolute().parent / "performance"
     data = {}
     for fname in os.listdir(work_dir):

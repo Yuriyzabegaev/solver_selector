@@ -1,7 +1,10 @@
 from solver_selector.solver_space import SolverConfigNode
 from solver_selector.solver_selector import SolverSelector, RewardPicker
 from solver_selector.utils import TimerContext
-from solver_selector.performance_predictor import PerformancePredictorEpsGreedy
+from solver_selector.performance_predictor import (
+    PerformancePredictorEpsGreedy,
+    PerformancePredictorGaussianProcess,
+)
 from solver_selector.data_structures import (
     ProblemContext,
     NonlinearSolverStats,
@@ -151,14 +154,13 @@ def make_simulation_runner(
         conf = solver_space.config_from_decision(decision=default, optimized_only=True)
         print(i, solver_space.format_config(conf))
 
-    predictor = params.get("predictir", "eps_greedy")
+    predictor = params.get("predictor", "eps_greedy")
+    samples_before_fit = params.get("samples_before_fit", 10)
+    predictors = []
     if predictor == "eps_greedy":
         print("Using epsilon-greedy exploration")
         exploration = params.get("exploration", 0.5)
         exploration_rate = params.get("exploration_rate", 0.9)
-        samples_before_fit = params.get("samples_before_fit", 10)
-
-        predictors = []
         for solver_template in all_solvers:
             predictors.append(
                 PerformancePredictorEpsGreedy(
@@ -168,6 +170,20 @@ def make_simulation_runner(
                     samples_before_fit=samples_before_fit,
                 )
             )
+
+    elif predictor == "gaussian_process":
+        print("Using Gaussian process exploration")
+        for solver_template in all_solvers:
+            predictors.append(
+                PerformancePredictorGaussianProcess(
+                    decision_template=solver_template,
+                    samples_before_fit=samples_before_fit,
+                )
+            )
+
+    else:
+        raise ValueError(predictor)
+
     solver_selector = SolverSelector(
         solver_space=solver_space,
         predictors=predictors,
