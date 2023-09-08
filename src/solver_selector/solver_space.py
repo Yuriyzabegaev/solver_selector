@@ -11,8 +11,8 @@ number: TypeAlias = int | float
 
 @dataclass(kw_only=True, slots=True, frozen=True)
 class NumericalParameter:
-    bounds: tuple[float, float]
-    default: float
+    bounds: tuple[number, number]
+    default: number
     scale: Literal["linear", "log10"] = "linear"
     dtype: Literal["float", "int"] = "float"
     is_optimized: bool = True
@@ -506,7 +506,7 @@ class ParametersNode(SolverConfigNode):
             if isinstance(param, int | float):
                 param = NumericalParameter(
                     bounds=(param, param),
-                    default=float(param),
+                    default=param,
                     is_optimized=False,
                 )
             tmp[param_name] = param

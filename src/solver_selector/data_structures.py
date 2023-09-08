@@ -25,6 +25,7 @@ class NonlinearSolverStats:
 
     is_converged: bool
     is_diverged: bool
+    num_nonlinear_iterations: int  # about to remove
     nonlinear_error: Sequence[float]
     iterations: Sequence[NonlinearIterationStats]
 
