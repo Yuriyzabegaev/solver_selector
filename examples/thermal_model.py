@@ -1,13 +1,15 @@
 from dataclasses import dataclass
-import numpy as np
-import porepy as pp
-from porepy.numerics.ad.operators import TimeDependentDenseArray, Scalar
-from porepy.models.mass_and_energy_balance import MassAndEnergyBalance, mass, energy
-from solver_selector.data_structures import ProblemContext
-from solver_selector.simulation_runner import Solver
-from thermal_solvers import ThermalSolverAssembler
 from pathlib import Path
 
+import numpy as np
+import porepy as pp
+from porepy.models.mass_and_energy_balance import MassAndEnergyBalance, energy, mass
+from porepy.numerics.ad.operators import Scalar, TimeDependentDenseArray
+from porepy_common import PorepyNewtonSolver, PorepySimulation
+from thermal_solvers import ThermalSolverAssembler
+
+from solver_selector.data_structures import ProblemContext, SolverSelectionData
+from solver_selector.simulation_runner import Solver
 
 PERMEABILITY = 1000
 
@@ -36,8 +38,8 @@ def cond_(x, a, b):
 
 
 cond = pp.ad.Function(cond_, name="condition", array_compatible=True)
-max = pp.ad.Function(pp.ad.maximum, name="max", array_compatible=True)
-min = pp.ad.Function(
+ad_max = pp.ad.Function(pp.ad.maximum, name="max", array_compatible=True)
+ad_min = pp.ad.Function(
     lambda x, y: -pp.ad.maximum(-x, -y), name="min", array_compatible=True
 )
 
@@ -48,6 +50,8 @@ class ThermalBase(MassAndEnergyBalance):
         self._perm = np.load(data_path / "spe10_perm_l3.npy").T * PERMEABILITY * 1e6
         self._phi = np.load(data_path / "spe10_phi_l3.npy").T
         self._phi = np.maximum(self._phi, 1e-10)
+        # self._phi = self._phi[:10, :10]
+        # self._perm = self._perm[:10, :10]
         self._shape = self._phi.shape
         super().__init__(params)
 
@@ -166,51 +170,6 @@ class ThermalBase(MassAndEnergyBalance):
         ) * self.porosity(subdomains)
         energy.set_name("fluid_internal_energy")
         return energy
-
-    # def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
-    #     """Boundary condition values for the mobility times density.
-
-    #     Units for Dirichlet: kg * m^-3 * Pa^-1 * s^-1
-
-    #     Parameters:
-    #         Value is tricky if ..math:
-    #             mobility = \\rho / \\mu
-    #         with \rho and \mu being functions of p (or other variables), since variables
-    #         are not defined at the boundary. This may lead to inconsistency between
-    #         boundary conditions for Darcy flux and mobility. For now, we assume that the
-    #         mobility is constant. TODO: Better solution. Could involve defining boundary
-    #         grids.
-
-    #     Parameters:
-    #         subdomains: List of subdomains.
-
-    #     Returns:
-    #         Array with boundary values for the mobility.
-
-    #     """
-    #     # List for all subdomains
-    #     bc_values: list[np.ndarray] = []
-
-    #     # Loop over subdomains to collect boundary values
-    #     for sd in subdomains:
-    #         # Get density and viscosity values on boundary faces applying trace to
-    #         # interior values.
-    #         # Define boundary faces.
-    #         boundary_faces = self.domain_boundary_sides(sd).all_bf
-    #         # Append to list of boundary values
-    #         vals = np.zeros(sd.num_faces)
-    #         vals[boundary_faces] = self.fluid.density() / self.fluid_viscosity_formula(
-    #             self.TEMPERATURE_INLET
-    #         )
-    #         bc_values.append(vals)
-
-    #     # Concatenate to single array and wrap as ad.DenseArray
-    #     # We have forced the type of bc_values_array to be an ad.DenseArray, but mypy does
-    #     # not recognize this. We therefore ignore the typing error.
-    #     bc_values_array: pp.ad.DenseArray = pp.wrap_as_ad_array(  # type: ignore
-    #         np.hstack(bc_values), name="bc_values_mobility"
-    #     )
-    #     return bc_values_array
 
     def set_equations(self):
         """Set the equations for the fluid mass and energy balance problem.
@@ -335,7 +294,7 @@ class ThermalSource(ThermalBase):
                 is_pumping = True
                 print("SOURCE ON")
                 break
-        self.sin_factor = is_pumping
+        self.well_on = is_pumping
         return is_pumping
 
     def fluid_density_inlet(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -388,9 +347,9 @@ class ThermalSource(ThermalBase):
         rate = factor * dd
 
         if is_prod:
-            rate = max(rate, rate_max)
+            rate = ad_max(rate, rate_max)
         else:
-            rate = min(rate, rate_max)
+            rate = ad_min(rate, rate_max)
         return rate
 
     def fluid_rate_inlet(self, subdomains):
@@ -536,7 +495,7 @@ class ThermalBC(ThermalBase):
 
         for sd in subdomains:
             vals = np.zeros(sd.num_faces)
-            bounds = self.domain_boundary_sides(sd).all_bf
+            # bounds = self.domain_boundary_sides(sd).all_bf
             # vals[bounds] = self.fluid.temperature()
             vals_list.append(vals)
         return pp.wrap_as_ad_array(np.concatenate(vals_list))
@@ -553,7 +512,7 @@ class ThermalBC(ThermalBase):
 
         for sd in subdomains:
             vals = np.zeros(sd.num_faces)
-            bounds = self.domain_boundary_sides(sd).all_bf
+            # bounds = self.domain_boundary_sides(sd).all_bf
             # vals[bounds] = self.fluid.pressure()
             vals_list.append(vals)
         return pp.wrap_as_ad_array(np.concatenate(vals_list))
@@ -652,8 +611,8 @@ solid_constants = pp.SolidConstants(
 
 
 def make_thermal_setup():
-    # schedule = np.array(np.array(pumping_schedule).flatten().tolist() + [T_END])
-    schedule = [0, 10 * dt]
+    schedule = np.array(np.array(pumping_schedule).flatten().tolist() + [T_END])
+    # schedule = [0, 10 * dt]
     # schedule = [0, dt]
     porepy_setup = ThermalSetup(
         {
@@ -674,9 +633,6 @@ def make_thermal_setup():
     return ThermalSimulationModel(porepy_setup=porepy_setup)
 
 
-from porepy_common import PorepyNewtonSolver, PorepySimulation
-
-
 @dataclass(frozen=True, kw_only=True, slots=True)
 class ThermalContext(ProblemContext):
     mat_size: int
@@ -685,7 +641,7 @@ class ThermalContext(ProblemContext):
     peclet_mean: float
     cfl_max: float
     cfl_mean: float
-    sin_factor: float
+    well_on: int
     inlet_rate: float
     outlet_rate: float
 
@@ -698,7 +654,7 @@ class ThermalContext(ProblemContext):
                 np.log(np.max([self.inlet_rate, 1e-8])),
                 np.log(np.max([self.outlet_rate, 1e-8])),
                 np.log(self.mat_size),
-                self.sin_factor,
+                self.well_on,
             ],
             dtype=float,
         )
@@ -760,7 +716,7 @@ class ThermalSimulationModel(PorepySimulation):
             .val[outlet_cells]
             .min()
         )
-        sin_factor = setup.sin_factor
+        sin_factor = setup.well_on
         inlet_rate *= sin_factor
         outlet_cells *= sin_factor
         return abs(inlet_rate), abs(outlet_rate)
@@ -778,7 +734,7 @@ class ThermalSimulationModel(PorepySimulation):
             cfl_mean=CFL_mean,
             inlet_rate=fluid_rate_inlet,
             outlet_rate=fluid_rate_outlet,
-            sin_factor=self.porepy_setup.sin_factor,
+            well_on=self.porepy_setup.well_on,
         )
 
     def assemble_solver(self, solver_config: dict) -> Solver:
@@ -821,3 +777,26 @@ class ThermalSimulationModel(PorepySimulation):
             self.porepy_setup.equation_system
         )
         return schur_ad.jac[:, indices]
+
+    def after_time_step_success(self, solver_selection_data: SolverSelectionData):
+        # Custom time step increasing scheme to follow Roy (2019).
+        super().after_time_step_success(solver_selection_data)
+
+        model = self.porepy_setup
+
+        current_nits = len(solver_selection_data.nonlinear_solver_stats.iterations)
+
+        if current_nits < 6:
+            factor = 1 + min(1.0, (6 - current_nits) ** 2 / 3**2)
+            model.time_manager.dt *= factor
+        elif current_nits > 9:
+            factor = 1 - min(1.0, (current_nits - 9) ** 2 / 4**2) / 2
+            model.time_manager.dt *= factor
+
+        model.time_manager._correction_based_on_dt_max()
+        model.time_manager._correction_based_on_dt_min()
+        model.time_manager._correction_based_on_schedule()
+
+    def after_time_step_failure(self, solver_selection_data: SolverSelectionData):
+        print("Time step failed")
+        self.porepy_setup.time_manager.dt /= 2

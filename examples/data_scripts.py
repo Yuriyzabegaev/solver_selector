@@ -1,12 +1,14 @@
 import os
 import re
-import numpy as np
-from typing import Sequence
 from pathlib import Path
+from typing import Sequence
+
+import numpy as np
+
 from solver_selector.data_structures import (
-    SolverSelectionData,
     NonlinearSolverStats,
     PerformancePredictionData,
+    SolverSelectionData,
 )
 
 
@@ -22,7 +24,7 @@ def make_solution_stats(
 
 def make_converged_indices(perf: Sequence[SolverSelectionData]):
     solution_stats = make_solution_stats(perf, converged=False)
-    return [x.is_converged for x in solution_stats]
+    return np.array([x.is_converged for x in solution_stats])
 
 
 def make_solve_linear_system_time(perf, converged=True):
@@ -73,6 +75,14 @@ def make_outlet_rate(perf, converged=True):
     return np.maximum(array, 1e-6)
 
 
+def make_simulation_time(perf, converged=True):
+    time_steps = make_time_step(perf, converged=converged)
+    if not converged:
+        conv = make_converged_indices(perf)
+        time_steps[~conv] = 0
+    return np.cumsum(time_steps)
+
+
 def make_predictions(
     perf: Sequence[SolverSelectionData], converged=True
 ) -> Sequence[PerformancePredictionData]:
@@ -96,13 +106,13 @@ def make_time_step_numbers(perf, converged=True):
     return np.array([i for i, x in enumerate(solution_stats) for y in x.iterations])
 
 
-def make_num_nonlinear_iters(perf):
-    solution_stats_converged = make_solution_stats(perf)
+def make_num_nonlinear_iters(perf, converged=True):
+    solution_stats_converged = make_solution_stats(perf, converged=converged)
     return [x.num_nonlinear_iterations for x in solution_stats_converged]
 
 
-def make_num_linear_iters(perf):
-    solution_stats_converged = make_solution_stats(perf)
+def make_num_linear_iters(perf, converged=True):
+    solution_stats_converged = make_solution_stats(perf, converged=converged)
     return np.array(
         [
             y.num_linear_iterations
@@ -112,8 +122,8 @@ def make_num_linear_iters(perf):
     )
 
 
-def append_experiment_name(path: str) -> Path:
-    path: Path = Path(path).absolute()
+def append_experiment_name(path: str | Path) -> Path:
+    path = Path(path).absolute()
     filename = path.name
     experiment_dir = path.parent / "performance"
     experiment_dir.mkdir(exist_ok=True)
@@ -123,8 +133,8 @@ def append_experiment_name(path: str) -> Path:
         if file.startswith(name):
             match = re.findall(r"(\d+).npy", file)
             ids.extend(match)
-    ids = [int(x) for x in ids]
-    max_id = max(ids) + 1
+    int_ids = [int(x) for x in ids]
+    max_id = max(int_ids) + 1
 
     experiment_dir.mkdir(exist_ok=True)
     return experiment_dir / f"{name}_{max_id}.npy"

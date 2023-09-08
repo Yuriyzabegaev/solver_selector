@@ -1,19 +1,22 @@
-from solver_selector.solver_space import SolverConfigNode
-from solver_selector.solver_selector import SolverSelector, RewardPicker
-from solver_selector.utils import TimerContext
+from abc import ABC, abstractmethod
+from typing import Optional, Sequence
+
+import numpy as np
+
+from solver_selector.data_structures import (
+    NonlinearSolverStats,
+    ProblemContext,
+    SolverSelectionData,
+)
 from solver_selector.performance_predictor import (
+    PerformancePredictor,
     PerformancePredictorEpsGreedy,
     PerformancePredictorGaussianProcess,
     PerformancePredictorRandom,
 )
-from solver_selector.data_structures import (
-    ProblemContext,
-    NonlinearSolverStats,
-    SolverSelectionData,
-)
-from abc import ABC, abstractmethod
-import numpy as np
-from typing import Sequence
+from solver_selector.solver_selector import RewardPicker, SolverSelector
+from solver_selector.solver_space import SolverConfigNode
+from solver_selector.utils import TimerContext
 
 
 class Solver(ABC):
@@ -37,7 +40,9 @@ class SimulationModel(ABC):
 
     @abstractmethod
     def get_context(self) -> ProblemContext:
-        """Get current simulation context that characterizes current simulation state."""
+        """Get current simulation context that characterizes current simulation state.
+
+        """
 
     @abstractmethod
     def assemble_solver(self, solver_config: dict) -> Solver:
@@ -52,8 +57,15 @@ class SimulationModel(ABC):
 
         """
 
-    def after_time_step(self, solver_selection_data: SolverSelectionData):
-        """Called after finishing the time step."""
+    def after_time_step_success(self, solver_selection_data: SolverSelectionData):
+        """Called after successfully finishing the time step."""
+
+    def after_time_step_failure(self, solver_selection_data: SolverSelectionData):
+        """Called after unsuccessfully finishing the time step. By default, raises an
+        error.
+
+        """
+        raise ValueError("Simulation time step is not done.")
 
     def after_simulation(self):
         """Called once when the simulation successfuly finishes."""
@@ -68,13 +80,13 @@ class SimulationRunner:
         self,
         solver_selector: SolverSelector,
         reward_picker: RewardPicker,
-        params: dict = None,
+        params: Optional[dict] = None,
     ):
+        params = params or {}
         save_statistics_path = params.get("save_statistics_path")
         if save_statistics_path is not None:
             save_statistics_path = str(save_statistics_path)
         self.save_statistics_path: str | None = save_statistics_path
-        params = params or {}
         self.params = {"print_solver": False, "print_time": False} | params
         self.solver_selector: SolverSelector = solver_selector
         self.reward_picker: RewardPicker = reward_picker
@@ -128,7 +140,10 @@ class SimulationRunner:
             self.select_solver_times.append(timer_select_solver.elapsed_time)
             self.update_selector_times.append(timer_update_selector.elapsed_time)
 
-            simulation.after_time_step(solver_selection_data)
+            if performance_data.is_converged:
+                simulation.after_time_step_success(solver_selection_data)
+            else:
+                simulation.after_time_step_failure(solver_selection_data)
 
             if self.params["print_time"]:
                 print(f"Select solver time: {timer_select_solver.elapsed_time:2e}")
@@ -136,14 +151,17 @@ class SimulationRunner:
                 print(f"Update selector time: {timer_update_selector.elapsed_time:2e}")
 
             if self.save_statistics_path is not None:
-                np.save(self.save_statistics_path, self.solver_selector.memory)
+                np.save(
+                    self.save_statistics_path,
+                    self.solver_selector.memory,  # type: ignore[arg-type]
+                )
 
         simulation.after_simulation()
         print("Simulation finished successfully.")
 
 
 def make_simulation_runner(
-    solver_space: SolverConfigNode, params: dict = None
+    solver_space: SolverConfigNode, params: Optional[dict] = None
 ) -> SimulationRunner:
     """Convenience function to initialize all the solver selection objects."""
     params = params or {}
@@ -158,7 +176,7 @@ def make_simulation_runner(
 
     predictor = params.get("predictor", "eps_greedy")
     samples_before_fit = params.get("samples_before_fit", 10)
-    predictors = []
+    predictors: list[PerformancePredictor] = []
     if predictor == "eps_greedy":
         print("Using epsilon-greedy exploration")
         exploration = params.get("exploration", 0.5)

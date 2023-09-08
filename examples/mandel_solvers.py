@@ -1,22 +1,22 @@
-from solver_selector.solver_space import (
-    SplittingNode,
-    KrylovSolverDecisionNode,
-    SolverConfigNode,
-    NumericalParameter,
-    ParametersNode,
-    ConstantNode,
-)
+from typing import TYPE_CHECKING, Literal, Sequence
+
 from solvers_common import (
     DirectSolverNode,
     LinearSolver,
     LinearSolverNames,
-    SplittingSchur,
-    SolverAssembler,
     Preconditioner,
+    SolverAssembler,
+    SplittingSchur,
 )
 
-from typing import Sequence, Literal, TYPE_CHECKING
-
+from solver_selector.solver_space import (
+    ConstantNode,
+    KrylovSolverDecisionNode,
+    NumericalParameter,
+    ParametersNode,
+    SolverConfigNode,
+    SplittingNode,
+)
 
 if TYPE_CHECKING:
     from mandel_model import MandelSimulationModel
@@ -61,11 +61,11 @@ class FixedStressNode(SolverConfigNode):
 
 def make_mandel_solver_space(l_factor: Literal["0", "1", "dynamic"]):
     if l_factor == "0":
-        l_factor = 0
+        l_factor_val = 0
     elif l_factor == "1":
-        l_factor = 1
+        l_factor_val = 1
     elif l_factor == "dynamic":
-        l_factor = NumericalParameter(bounds=(0, 1), default=0, is_optimized=True)
+        l_factor_val = NumericalParameter(bounds=(0, 1), default=0, is_optimized=True)
 
     prec_primary = DirectSolverNode()
     prec_secondary = DirectSolverNode()
@@ -86,7 +86,7 @@ def make_mandel_solver_space(l_factor: Literal["0", "1", "dynamic"]):
                     SplittingNames.primary_subsolver: [prec_primary],
                     SplittingNames.secondary_subsolver: [prec_secondary],
                 },
-                l_factor=l_factor,
+                l_factor=l_factor_val,
             ),
         ],
         other_children=[ParametersNode({"tol": 1e-6, "restart": 30, "maxiter": 10})],

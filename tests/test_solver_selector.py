@@ -1,19 +1,19 @@
 import numpy as np
-from solver_selector.solver_selector import SolverSelector
-from solver_selector.performance_predictor import (
-    PerformancePredictorEpsGreedy,
-    PerformancePredictor,
-)
-from solver_selector.solver_space import (
-    KrylovSolverNode,
-    SolverConfigNode,
-    ParametersNode,
-    NumericalParameter,
-    KrylovSolverDecisionNode,
-)
-from solver_selector.data_structures import SolverSelectionData
-
 from tests_common import DummpyProblemContext, generate_synthetic_data
+
+from solver_selector.data_structures import SolverSelectionData
+from solver_selector.performance_predictor import (
+    PerformancePredictor,
+    PerformancePredictorEpsGreedy,
+)
+from solver_selector.solver_selector import SolverSelector
+from solver_selector.solver_space import (
+    KrylovSolverDecisionNode,
+    KrylovSolverNode,
+    NumericalParameter,
+    ParametersNode,
+    SolverConfigNode,
+)
 
 
 def make_solver_space():

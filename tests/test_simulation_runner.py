@@ -1,24 +1,21 @@
+from tests_common import DummpyProblemContext
+
 from solver_selector.data_structures import (
-    NonlinearSolverStats,
     NonlinearIterationStats,
+    NonlinearSolverStats,
 )
 from solver_selector.simulation_runner import (
     SimulationModel,
     Solver,
     make_simulation_runner,
 )
-from solver_selector.solver_space import (
-    ConstantNode,
-    KrylovSolverDecisionNode,
-)
-from tests_common import DummpyProblemContext
+from solver_selector.solver_space import ConstantNode, KrylovSolverDecisionNode
 
 
 def generate_solver_stats(multiplier):
     return NonlinearSolverStats(
         is_converged=True,
         is_diverged=False,
-        num_nonlinear_iterations=1,
         nonlinear_error=[0, 0],
         iterations=[
             NonlinearIterationStats(

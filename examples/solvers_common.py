@@ -1,24 +1,17 @@
-from solver_selector.solver_space import (
-    KrylovSolverNode,
-    SolverConfigNode,
-    ParametersNode,
-    ConstantNode,
-    NumericalParameter,
-)
-from solver_selector.simulation_runner import SimulationModel
-from typing_extensions import Self
-import numpy as np
-from scipy.sparse.linalg import LinearOperator, spsolve, gmres
-from scipy.sparse import csr_matrix
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional
 
+import numpy as np
 import petsc4py
+from petsc4py import PETSc
+from scipy.sparse import csr_matrix
+from scipy.sparse.linalg import LinearOperator, gmres, spsolve
+
+from solver_selector.simulation_runner import SimulationModel
+from solver_selector.solver_space import KrylovSolverNode, SolverConfigNode
 
 petsc4py.init()
-from petsc4py import PETSc
-
 
 #  ------------------- Solver space -------------------
 
@@ -66,7 +59,7 @@ class LinearSolverStatistics:
 
 
 class Preconditioner(ABC):
-    def __init__(self, config: dict = None) -> None:
+    def __init__(self, config: Optional[dict] = None) -> None:
         self.config: dict = config or {}
         self.mat: csr_matrix = None
 
@@ -87,7 +80,7 @@ class LinearSolver:
     def __init__(
         self,
         preconditioner: Preconditioner,
-        config: dict = None,
+        config: Optional[dict] = None,
     ) -> None:
         self.config: dict = config or {}
         self.mat: csr_matrix = None
@@ -99,7 +92,10 @@ class LinearSolver:
 
     @abstractmethod
     def solve(
-        self, b: np.ndarray, x0: np.ndarray = None, tol: float = None
+        self,
+        b: np.ndarray,
+        x0: Optional[np.ndarray] = None,
+        tol: Optional[float] = None,
     ) -> tuple[np.ndarray, LinearSolverStatistics]:
         """Returns the solution and statistics."""
         raise NotImplementedError
@@ -159,7 +155,7 @@ class SplittingSchur(Preconditioner):
 
 
 class PreconditionerPetscAMG(Preconditioner):
-    def __init__(self, config: dict = None) -> None:
+    def __init__(self, config: Optional[dict] = None) -> None:
         super().__init__(config)
         self.pc = PETSc.PC().create()
         options = PETSc.Options()
@@ -201,7 +197,7 @@ class PreconditionerPetscAMG(Preconditioner):
 
 
 class PreconditionerPetscILU(Preconditioner):
-    def __init__(self, config: dict = None) -> None:
+    def __init__(self, config: Optional[dict] = None) -> None:
         super().__init__(config)
         self.pc = PETSc.PC().create()
         options = PETSc.Options()
@@ -250,7 +246,7 @@ class LinearSolverGMRES(LinearSolver):
     def gmres_callback(self, x):
         self._num_iters += 1
 
-    def solve(self, b, x0=None, tol: float = None):
+    def solve(self, b, x0=None, tol: Optional[float] = None):
         self._num_iters = 0
 
         tol = tol or self.config["tol"]
@@ -284,7 +280,7 @@ class LinearSolverGMRES(LinearSolver):
 
 
 class NoneLinearSolver(LinearSolver):
-    def solve(self, b, x0=None, tol: float = None):
+    def solve(self, b, x0=None, tol: Optional[float] = None):
         return self.preconditioner.apply(b), LinearSolverStatistics(
             num_iters=1, is_converged=False, is_diverged=False
         )
@@ -296,7 +292,7 @@ class NonePreconditioner(Preconditioner):
 
 
 class LinearSolverDirect(LinearSolver):
-    def solve(self, b, x0=None, tol: float = None):
+    def solve(self, b, x0=None, tol: Optional[float] = None):
         return spsolve(self.mat, b), LinearSolverStatistics(
             num_iters=1, is_converged=True, is_diverged=False
         )

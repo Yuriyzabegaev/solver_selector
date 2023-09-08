@@ -1,26 +1,26 @@
 from pytest import raises
-from solver_selector.solver_space import (
-    KrylovSolverNode,
-    KrylovSolverDecisionNode,
-    SolverConfigNode,
-    ConstantNode,
-    SplittingNode,
-    ParametersNode,
-    NumericalParameter,
-)
 
+from solver_selector.solver_space import (
+    ConstantNode,
+    KrylovSolverDecisionNode,
+    KrylovSolverNode,
+    NumericalParameter,
+    ParametersNode,
+    SolverConfigNode,
+    SplittingNode,
+)
 
 EXPECTED_CONFIG = {
     "bicgstab": {
         "preconditioner": {
             "fixed_stress": {
                 "primary": {
-                    "no_solver": {
+                    "none": {
                         "preconditioner": {"ilu": {"drop_tol": 1e-05, "param_1": 10}}
                     }
                 },
                 "secondary": {
-                    "no_solver": {
+                    "none": {
                         "preconditioner": {"ilu": {"drop_tol": 1e-05, "param_1": 10}}
                     }
                 },
@@ -45,7 +45,7 @@ def test_solver_space():
     ilu = SolverConfigNode(name="ilu", children=[ilu_params])
     amg = ConstantNode(name="amg", params={"cycle": "w", "max_levels": 5})
     mono_precs = [ilu, amg]
-    no_solver = KrylovSolverNode.from_preconditioners_list(mono_precs, name="no_solver")
+    no_solver = KrylovSolverNode.from_preconditioners_list(mono_precs, name="none")
     fixed_stress_params = ParametersNode(
         {
             "l_factor": NumericalParameter(
@@ -104,7 +104,10 @@ def test_solver_space():
     assert config == EXPECTED_CONFIG
 
     config_str = solver_space.format_config(config)
-    expected = "bicgstab - fixed_stress [primary - no_solver - ilu [drop_tol=1e-05, param_1=10], secondary - no_solver - ilu [drop_tol=1e-05, param_1=10], l_factor=1]"
+    expected = (
+        "bicgstab - fixed_stress [primary - ilu [drop_tol=1e-05, param_1=10], secondary"
+        " - ilu [drop_tol=1e-05, param_1=10], l_factor=1]"
+    )
     assert config_str == expected
 
     nodes = solver_space.find_nodes_by_name("amg")

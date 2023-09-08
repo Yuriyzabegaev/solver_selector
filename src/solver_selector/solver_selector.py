@@ -2,19 +2,19 @@ from typing import Sequence
 
 import numpy as np
 
-from solver_selector.solver_space import Decision, SolverConfigNode, DecisionTemplate
-from solver_selector.performance_predictor import PerformancePredictor
 from solver_selector.data_structures import (
     NonlinearIterationStats,
     NonlinearSolverStats,
-    SolverSelectionData,
-    ProblemContext,
     PerformancePredictionData,
+    ProblemContext,
+    SolverSelectionData,
 )
+from solver_selector.performance_predictor import PerformancePredictor
+from solver_selector.solver_space import Decision, DecisionTemplate, SolverConfigNode
 
 
 class RewardPicker:
-    def __init__(self):
+    def __init__(self) -> None:
         self._worst_work_time: float = 100.0
 
     def pick_rewards(self, solution_data: NonlinearSolverStats):
@@ -96,7 +96,9 @@ class SolverSelector:
         runs. Used for warm-starting.
 
         """
-        datasets_for_predictors = [[] for _ in range(len(self.predictors))]
+        datasets_for_predictors: list[list[SolverSelectionData]] = [
+            [] for _ in range(len(self.predictors))
+        ]
         for selection_data in selection_dataset:
             decision = self.solver_space.decision_from_config(selection_data.config)
             decision_idx = self._get_solver_idx(decision)

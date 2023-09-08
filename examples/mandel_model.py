@@ -1,14 +1,16 @@
-import porepy as pp
-import numpy as np
-import scipy.sparse
-from mandel_biot import MandelSetup as MandelSetup_
-from scipy.sparse import csr_matrix
-from solver_selector.simulation_runner import Solver
-from solver_selector.data_structures import ProblemContext
-from mandel_solvers import MandelSolverAssembler
-from porepy_common import PorepyNewtonSolver, PorepySimulation
 from dataclasses import dataclass
 from typing import Literal
+
+import numpy as np
+import porepy as pp
+import scipy.sparse
+from mandel_biot import MandelSetup as MandelSetup_
+from mandel_solvers import MandelSolverAssembler
+from porepy_common import PorepyNewtonSolver, PorepySimulation
+from scipy.sparse import csr_matrix
+
+from solver_selector.data_structures import ProblemContext
+from solver_selector.simulation_runner import Solver
 
 
 class MandelSetup(MandelSetup_):
@@ -115,8 +117,8 @@ class MandelSimulationModel(PorepySimulation):
 
 
 time_manager = pp.TimeManager(
-    # schedule=[0, 1e3],
-    schedule=[0, 1e2],
+    schedule=[0, 1e3],
+    # schedule=[0, 1e2],
     # schedule=[0, 10],
     dt_init=10,
     constant_dt=True,

@@ -1,25 +1,20 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from typing import Sequence
+
 import numpy as np
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, DotProduct
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 
 from solver_selector.data_structures import (
     PerformancePredictionData,
     ProblemContext,
     SolverSelectionData,
 )
-
-from solver_selector.solver_space import (
-    Decision,
-    ParametersSpace,
-    DecisionTemplate,
-    number,
-)
+from solver_selector.solver_space import Decision, DecisionTemplate, number
 
 DEFAULT_EXPECTATION = 100.0
 
@@ -49,12 +44,12 @@ class ParametersSpace:
         self.bounds: Sequence[tuple[float, float]] = bounds
         self.defaults: Sequence[number] = defaults
         self.node_ids: Sequence[int] = node_ids
-        self.is_optimized: tuple[bool] = is_optimized
+        self.is_optimized: Sequence[bool] = is_optimized
         self.decision_templace: DecisionTemplate = decision_template
 
     def decision_from_array(self, decision_data: np.ndarray) -> Decision:
         """Transform a numpy array of selected parameters to the actual decision."""
-        params = defaultdict(lambda: dict())
+        params: dict[int, dict[str, number]] = defaultdict(lambda: dict())
         iterator = zip(
             self.node_ids, self.param_names, self.is_optimized, self.defaults
         )
@@ -99,7 +94,13 @@ class PerformancePredictor(ABC):
         self,
         context: ProblemContext,
     ) -> PerformancePredictionData:
-        """Choose to explore or to exploit and select a solver for the next time step."""
+        """Choose to explore or to exploit and select a solver for the next time step.
+
+        """
+
+    @abstractmethod
+    def _fit(self, full_contexts: np.ndarray, rewards: np.ndarray):
+        pass
 
     def __init__(
         self, decision_template: DecisionTemplate, samples_before_fit: int = 10
@@ -170,13 +171,6 @@ class PerformancePredictor(ABC):
         full_context = np.broadcast_to(full_context, shape=new_shape)
         return full_context, rewards
 
-    def _fit(self, full_contexts: np.ndarray, rewards: np.ndarray):
-        self.memory_contexts.extend(full_contexts.tolist())
-        self.memory_rewards.extend(rewards.tolist())
-        if len(self.memory_rewards) >= self.samples_before_fit:
-            self.regressor.fit(self.memory_contexts, self.memory_rewards)
-            self.is_initialized = True
-
 
 class PerformancePredictorEpsGreedy(PerformancePredictor):
     def __init__(
@@ -226,6 +220,13 @@ class PerformancePredictorEpsGreedy(PerformancePredictor):
             self.exploration *= self.exploration_rate
             return self.random_choice(context)
 
+    def _fit(self, full_contexts: np.ndarray, rewards: np.ndarray):
+        self.memory_contexts.extend(full_contexts.tolist())
+        self.memory_rewards.extend(rewards.tolist())
+        if len(self.memory_rewards) >= self.samples_before_fit:
+            self.regressor.fit(self.memory_contexts, self.memory_rewards)
+            self.is_initialized = True
+
 
 class PerformancePredictorGaussianProcess(PerformancePredictor):
     def __init__(
@@ -269,6 +270,13 @@ class PerformancePredictorGaussianProcess(PerformancePredictor):
             score=float(expectation), decision=decision, context=context
         )
 
+    def _fit(self, full_contexts: np.ndarray, rewards: np.ndarray):
+        self.memory_contexts.extend(full_contexts.tolist())
+        self.memory_rewards.extend(rewards.tolist())
+        if len(self.memory_rewards) >= self.samples_before_fit:
+            self.regressor.fit(self.memory_contexts, self.memory_rewards)
+            self.is_initialized = True
+
 
 class PerformancePredictorRandom(PerformancePredictor):
     def select_solver_parameters(
@@ -285,3 +293,6 @@ class PerformancePredictorRandom(PerformancePredictor):
         return PerformancePredictionData(
             score=float(score), decision=decision, context=context
         )
+
+    def _fit(self, full_contexts: np.ndarray, rewards: np.ndarray):
+        pass

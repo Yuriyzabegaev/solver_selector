@@ -1,13 +1,14 @@
-from solvers_common import LinearSolver, LinearSolverStatistics
+import numpy as np
 from porepy import SolutionStrategy
-from solver_selector.utils import TimerContext
+from solvers_common import LinearSolver, LinearSolverStatistics
+
 from solver_selector.data_structures import (
     NonlinearIterationStats,
     NonlinearSolverStats,
     SolverSelectionData,
 )
-from solver_selector.simulation_runner import Solver, SimulationModel
-import numpy as np
+from solver_selector.simulation_runner import SimulationModel, Solver
+from solver_selector.utils import TimerContext
 
 
 class PorepySimulation(SimulationModel):
@@ -29,7 +30,7 @@ class PorepySimulation(SimulationModel):
         time_manager = self.porepy_setup.time_manager
         return time_manager.time >= time_manager.time_final
 
-    def after_time_step(self, solver_selection_data: SolverSelectionData):
+    def after_time_step_success(self, solver_selection_data: SolverSelectionData):
         model = self.porepy_setup
         model.time_manager.increase_time()
         model.time_manager.increase_time_index()
@@ -91,55 +92,66 @@ class PorepyNewtonSolver(Solver):
                 sol, linear_stats = self.linear_solver.solve(rhs)
 
             # Check convergence
-            with TimerContext() as convergence_timer:
-                model.after_nonlinear_iteration(sol)
+            model.after_nonlinear_iteration(sol)
 
-                if model._is_nonlinear_problem():
-                    error_norm, is_converged, is_diverged = model.check_convergence(
-                        sol, prev_sol, init_sol, self.params
-                    )
-                else:
-                    if linear_stats.is_converged:
-                        is_diverged = False
-                        is_converged = True
-                        error_norm = linear_stats.residual_decrease
-                    else:
-                        is_diverged = True
-                        is_converged = False
-                        error_norm = -1
-
-                if linear_stats.residual_decrease is not None:
-                    self.residual_norms.append(linear_stats.residual_decrease)
-                    if linear_stats.residual_decrease > 1e16:
-                        is_diverged = True
-
-                if not linear_stats.is_converged:
-                    print("Linear solver failed.")
-                if linear_stats.is_diverged:
-                    print("Linear solver diverged.")
-                if is_diverged:
-                    print("Nonlinear solver diverged.")
-
-                self.error_norms.append(error_norm)
-                print(
-                    f"Newton iter: {iteration_counter}, error: {self.error_norms[-1]}, "
-                    f"linear iters: {linear_stats.num_iters}"
+            if model._is_nonlinear_problem():
+                error_norm, is_converged, is_diverged = model.check_convergence(
+                    sol, prev_sol, init_sol, self.params
                 )
+                # if not linear_stats.is_converged and not is_converged:
+                #     is_diverged = True
+                #     # This is kind of strict, but currently we do not consider
+                #     # inexact Newton.
+
+            else:  # Linear problem
+                if linear_stats.is_converged:
+                    is_diverged = False
+                    is_converged = True
+                    error_norm = linear_stats.residual_decrease
+                else:
+                    is_diverged = True
+                    is_converged = False
+                    error_norm = -1
+
+            self.residual_norms.append(np.linalg.norm(rhs))
+            if linear_stats.residual_decrease > 1e16:
+                is_diverged = True
+
+            if not linear_stats.is_converged:
+                print("Linear solver failed.")
+            if linear_stats.is_diverged:
+                print("Linear solver diverged.")
+            if is_diverged:
+                print("Nonlinear solver diverged.")
+
+            self.error_norms.append(error_norm)
+            print(
+                f"Newton iter: {iteration_counter}, error: {self.error_norms[-1]}, "
+                f"linear iters: {linear_stats.num_iters}"
+            )
         except LinearSolverFailed as e:
             print(e)
+            sol = prev_sol
             is_diverged = True
             is_converged = False
             linear_stats = LinearSolverStatistics(
                 num_iters=-1, is_converged=False, is_diverged=True
             )
+            solve_time = 0
+            update_time = 0
+            assembly_time = assembly_timer.elapsed_time
+        else:
+            solve_time = solve_timer.elapsed_time
+            assembly_time = assembly_timer.elapsed_time
+            update_time = update_timer.elapsed_time
         return {
             "sol": sol,
             "is_converged": is_converged,
             "is_diverged": is_diverged,
             "linear_stats": linear_stats,
-            "solve_time": solve_timer.elapsed_time,
-            "assembly_time": assembly_timer.elapsed_time,
-            "update_time": update_timer.elapsed_time,
+            "solve_time": solve_time,
+            "assembly_time": assembly_time,
+            "update_time": update_time,
         }
 
     def solve(self, porepy_setup: SolutionStrategy) -> NonlinearSolverStats:
@@ -179,11 +191,16 @@ class PorepyNewtonSolver(Solver):
                 break
 
         if len(self.residual_norms) > 1:
-            print("||F||/||F_0||:", self.residual_norms[-1] / self.residual_norms[0])
+            # We do not compute residual norm on the last iteration, so it must be less
+            # than on the one second from last iteration.
+            print(
+                "||F||/||F_0|| < "
+                f"{self.residual_norms[-1] / self.residual_norms[0]:.2e}"
+            )
 
         if is_converged:
             model.after_nonlinear_convergence(sol, self.error_norms, iteration_counter)
-        if not is_converged:
+        else:
             try:
                 model.after_nonlinear_failure(sol, self.error_norms, iteration_counter)
             except ValueError:
@@ -192,7 +209,6 @@ class PorepyNewtonSolver(Solver):
         return NonlinearSolverStats(
             is_converged=is_converged,
             is_diverged=is_diverged,
-            num_nonlinear_iterations=len(iteration_stats),
             nonlinear_error=self.error_norms,
             iterations=iteration_stats,
         )

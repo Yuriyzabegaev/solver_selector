@@ -1,13 +1,14 @@
 from typing import Sequence
+
 import numpy as np
+
 from solver_selector.data_structures import (
-    ProblemContext,
-    SolverSelectionData,
     NonlinearIterationStats,
     NonlinearSolverStats,
     PerformancePredictionData,
+    ProblemContext,
+    SolverSelectionData,
 )
-from solver_selector.data_structures import ProblemContext
 
 
 class DummpyProblemContext(ProblemContext):
@@ -24,7 +25,6 @@ def generate_synthetic_data(
             nonlinear_solver_stats=NonlinearSolverStats(
                 is_converged=True,
                 is_diverged=False,
-                num_nonlinear_iterations=num_linear_systems,
                 nonlinear_error=[0, 0],
                 iterations=[
                     NonlinearIterationStats(
@@ -41,7 +41,7 @@ def generate_synthetic_data(
             ),
             prediction=prediction,
             config=config,
-            rewards=[i * 2 + seed for i in range(1, num_linear_systems + 1)],
+            rewards=[float(i * 2 + seed) for i in range(1, num_linear_systems + 1)],
         )
         for num_linear_systems in [4, 6]
     ]

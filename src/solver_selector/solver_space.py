@@ -1,12 +1,10 @@
 from collections import defaultdict
-from copy import deepcopy
-from itertools import count, product
-from typing import Literal, Optional
 from dataclasses import dataclass, field
-from typing_extensions import Self
-import numpy as np
-from typing import Sequence, TypeAlias
+from itertools import count, product
+from typing import Literal, Optional, Sequence, TypeAlias
 
+import numpy as np
+from typing_extensions import Self
 
 number: TypeAlias = int | float
 
@@ -33,15 +31,15 @@ class Decision:
     """Represents a complete solver configuration decision."""
 
     subsolvers: dict[int, str]
-    """Represent a set of chosen methods that are used inside the solver. 
-    
+    """Represent a set of chosen methods that are used inside the solver.
+
     Key is a config node id.
     
     """
 
     parameters: dict[int, dict[str, number]]
-    """Represent numerical parameters of the methods that are used inside the solver. 
-    
+    """Represent numerical parameters of the methods that are used inside the solver.
+
     Key is a config node id.
     
     """
@@ -56,7 +54,7 @@ class DecisionTemplate:
 
     subsolvers: dict[int, str]
     """Represent a set of chosen methods that are used inside the solver. 
-    
+
     Key is a config node id.
     
     """
@@ -69,11 +67,11 @@ class DecisionTemplate:
             assert node_id in parameters
             for param_name, param_value in parameters[node_id].items():
                 assert param_name in param_space.numerical
-                assert isinstance(param_value, number)
+                assert isinstance(param_value, number)  # type: ignore[misc, arg-type]
         return Decision(subsolvers=self.subsolvers, parameters=parameters)
 
     def use_defaults(self) -> Decision:
-        defaults = defaultdict(lambda: dict())
+        defaults: dict[int, dict[str, number]] = defaultdict(lambda: dict())
         for node_id, param_space in self.parameters.items():
             for param_name, param_value in param_space.numerical.items():
                 defaults[node_id][param_name] = param_value.default
@@ -95,7 +93,11 @@ class SolverConfigNode:
     def __repr__(self) -> str:
         return f"Solver config node {self._id}: {self.name}"
 
-    def __init__(self, children: Sequence["SolverConfigNode"] = None, name: str = None):
+    def __init__(
+        self,
+        children: Optional[Sequence["SolverConfigNode"]] = None,
+        name: Optional[str] = None,
+    ):
         self._id = next(self._counter)
         self.children: Sequence[SolverConfigNode] = tuple(children or [])
         self.name: str = name or self.type
@@ -153,8 +155,8 @@ class SolverConfigNode:
         return results
 
     def _get_submethods(self) -> Sequence[dict[int, str | ParametersSpace]]:
-        submethods = []
-        params = []  # Of this method
+        submethods: list[dict[int, str | ParametersSpace]] = []
+        params: list[dict[int, str | ParametersSpace]] = []  # Of this method
         for child in self.children:
             if isinstance(child, ParametersNode):
                 params.extend(child._get_submethods())
@@ -181,7 +183,12 @@ class SolverConfigNode:
             child_config = SolverConfigNode.format_config(value)
             key = str(key)
 
-            if key in ["none", "linear solver", "preconditioner", "parameters_node"]:
+            if key in {
+                "none",
+                DecisionNodeNames.fork_node,
+                DecisionNodeNames.preconditioner,
+                DecisionNodeNames.parameters_picker,
+            }:
                 return child_config
 
             key = key.replace(" ", "_")
@@ -213,7 +220,7 @@ class SolverConfigNode:
         """Returns children config nodes with a given name. The names are not unique."""
         if self.name == node_name:
             return [self]
-        nodes = []
+        nodes: list[SolverConfigNode] = []
         for child in self.children:
             nodes.extend(child.find_nodes_by_name(node_name))
         return nodes
@@ -230,7 +237,10 @@ class SolverConfigNode:
             c.config_from_decision(decision, optimized_only=optimized_only)
             for c in self.children
         ]
-        return {self.name: _merge_dicts(children_configs)}
+        children_config = _merge_dicts(children_configs)
+        if optimized_only and len(children_config) == 0:
+            return {}
+        return {self.name: children_config}
 
     def decision_from_config(self, config: dict) -> Decision:
         """Translates a solver config dictionary into the solver selection decision."""
@@ -267,7 +277,7 @@ class ConstantNode(SolverConfigNode):
 
     type = "constant config node"
 
-    def __init__(self, name: str, params: dict | str = None) -> None:
+    def __init__(self, name: str, params: Optional[dict | str] = None) -> None:
         super().__init__(children=None, name=name)
         if params is None:
             params = {}
@@ -303,7 +313,7 @@ class ForkNode(SolverConfigNode):
     def __init__(
         self,
         options: Sequence[SolverConfigNode],
-        name: str = None,
+        name: Optional[str] = None,
     ):
         self.options = {opt.name: opt.copy() for opt in options}
         assert len(self.options) == len(options), "Options must have unique names"
@@ -313,12 +323,14 @@ class ForkNode(SolverConfigNode):
         return type(self)(options=list(self.options.values()), name=self.name)
 
     def _get_submethods(self) -> Sequence[dict[int, str | ParametersSpace]]:
-        all_options = []
+        all_options: list[dict[int, str | ParametersSpace]] = []
         for option_name, option in self.options.items():
             base_option = {self._id: option_name}
-            solver_spaces_child = option._get_submethods()
+            solver_spaces_child: list[dict[int, str | ParametersSpace]] = list(
+                option._get_submethods()
+            )
             if len(solver_spaces_child) == 0:
-                solver_spaces_child = [base_option]
+                solver_spaces_child = [base_option]  # type: ignore[list-item]
             else:
                 for solver_space in solver_spaces_child:
                     solver_space.update(base_option.copy())
@@ -363,7 +375,7 @@ class KrylovSolverDecisionNode(ForkNode):
         self,
         krylov_solver_name: str,
         preconditioners: Sequence[SolverConfigNode],
-        other_children: Sequence[SolverConfigNode] = None,
+        other_children: Optional[Sequence[SolverConfigNode]] = None,
     ) -> "KrylovSolverDecisionNode":
         """Use the given krylov solver and one of the given preconditioners"""
         return KrylovSolverDecisionNode(
@@ -378,7 +390,9 @@ class KrylovSolverDecisionNode(ForkNode):
 
 
 class PreconditionerDecisionNode(ForkNode):
-    """Represents a variety of available preconditioner configurations to select from."""
+    """Represents a variety of available preconditioner configurations to select from.
+
+    """
 
     type = DecisionNodeNames.preconditioner
 
@@ -390,7 +404,7 @@ class KrylovSolverNode(SolverConfigNode):
     def from_preconditioners_list(
         cls,
         preconditioners: Sequence[SolverConfigNode],
-        other_children: Sequence[SolverConfigNode] = None,
+        other_children: Optional[Sequence[SolverConfigNode]] = None,
         **kwargs,
     ):
         """Convenience method to assemble a space of a Krylov solver with various
@@ -398,7 +412,9 @@ class KrylovSolverNode(SolverConfigNode):
 
         """
         preconditioners = [prec.copy() for prec in preconditioners]
-        children = [PreconditionerDecisionNode(options=preconditioners)]
+        children: list[SolverConfigNode] = [
+            PreconditionerDecisionNode(options=preconditioners)
+        ]
         if other_children is not None:
             children.extend(other_children)
 
@@ -432,7 +448,7 @@ class SplittingNode(SolverConfigNode):
     def __init__(
         self,
         solver_nodes: Sequence[SolverConfigNode],
-        name: str = None,
+        name: Optional[str] = None,
         other_children: Optional[Sequence[SolverConfigNode]] = None,
     ):
         self.solver_nodes = [node.copy() for node in solver_nodes]
@@ -440,7 +456,7 @@ class SplittingNode(SolverConfigNode):
             other_children = []
         self.other_children = [child.copy() for child in other_children]
         super().__init__(
-            children=solver_nodes + other_children,
+            children=self.solver_nodes + self.other_children,
             name=name,
         )
 
@@ -482,19 +498,20 @@ class ParametersNode(SolverConfigNode):
     def __init__(
         self,
         numerical: dict[str, NumericalParameter | number],
-        name: str = None,
+        name: Optional[str] = None,
     ):
         # If the user passed numbers, make constant parameters from them.
-        tmp = {}
+        tmp: dict[str, NumericalParameter] = {}
         for param_name, param in numerical.items():
-            if isinstance(param, number):
+            if isinstance(param, int | float):
                 param = NumericalParameter(
-                    bounds=(param, param), default=param, is_optimized=False
+                    bounds=(param, param),
+                    default=float(param),
+                    is_optimized=False,
                 )
             tmp[param_name] = param
-        numerical = tmp
 
-        self.parameters: ParametersSpace = ParametersSpace(numerical=numerical)
+        self.parameters: ParametersSpace = ParametersSpace(numerical=tmp)
         super().__init__(children=None, name=name)
 
     def copy(self):

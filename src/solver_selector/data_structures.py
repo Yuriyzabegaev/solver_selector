@@ -1,7 +1,9 @@
-from dataclasses import dataclass, asdict
-import numpy as np
-from solver_selector.solver_space import Decision
+from dataclasses import asdict, dataclass
 from typing import Sequence
+
+import numpy as np
+
+from solver_selector.solver_space import Decision
 
 
 @dataclass(kw_only=True, slots=True, frozen=True)
@@ -23,7 +25,6 @@ class NonlinearSolverStats:
 
     is_converged: bool
     is_diverged: bool
-    num_nonlinear_iterations: int
     nonlinear_error: Sequence[float]
     iterations: Sequence[NonlinearIterationStats]
 
@@ -59,5 +60,5 @@ class SolverSelectionData:
     nonlinear_solver_stats: NonlinearSolverStats
     prediction: PerformancePredictionData
     config: dict
-    rewards: tuple[float]
+    rewards: Sequence[float]
     work_time: float

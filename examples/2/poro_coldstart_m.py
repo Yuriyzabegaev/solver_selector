@@ -1,7 +1,8 @@
+from data_scripts import append_experiment_name
 from mandel_model import make_mandel_setup
 from mandel_solvers import make_mandel_solver_space
+
 from solver_selector.simulation_runner import make_simulation_runner
-from data_scripts import append_experiment_name
 
 experiment_path = append_experiment_name(__file__)
 print("Starting experiment:", experiment_path.name)

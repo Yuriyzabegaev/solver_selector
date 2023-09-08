@@ -1,24 +1,24 @@
+from typing import TYPE_CHECKING, Literal, Optional
+
 import numpy as np
-from solver_selector.solver_space import (
-    SplittingNode,
-    KrylovSolverDecisionNode,
-    SolverConfigNode,
-    ParametersNode,
-    KrylovSolverNode,
-    ConstantNode,
-)
 from solvers_common import (
     LinearSolver,
     LinearSolverNames,
     NodePreconditionerAMG,
     NodePreconditionerILU,
-    SplittingSchur,
-    SolverAssembler,
     Preconditioner,
+    SolverAssembler,
+    SplittingSchur,
 )
 
-from typing import Literal, TYPE_CHECKING
-
+from solver_selector.solver_space import (
+    ConstantNode,
+    KrylovSolverDecisionNode,
+    KrylovSolverNode,
+    ParametersNode,
+    SolverConfigNode,
+    SplittingNode,
+)
 
 if TYPE_CHECKING:
     from thermal_model import ThermalSimulationModel
@@ -40,7 +40,9 @@ class SplittingNodeCPR(SolverConfigNode):
 
     def __init__(
         self,
-        primary_variable: Literal["temperature", "pressure"] | SolverConfigNode = None,
+        primary_variable: Optional[
+            Literal["temperature", "pressure"] | SolverConfigNode
+        ] = None,
     ):
         solver_nodes = {
             SplittingNames.primary_subsolver: [
@@ -124,7 +126,7 @@ class SplittingCPR(Preconditioner):
         linear_solver_primary: LinearSolver,
         linear_solver_secondary: LinearSolver,
         thermal_problem: "ThermalSimulationModel",
-        config: dict = None,
+        config: Optional[dict] = None,
     ):
         for param in ["primary_variable"]:
             assert param in config

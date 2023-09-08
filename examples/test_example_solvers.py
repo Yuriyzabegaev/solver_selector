@@ -1,5 +1,5 @@
-from mandel_solvers import make_mandel_solver_space, MandelSolverAssembler
-from thermal_solvers import make_thermal_solver_space, ThermalSolverAssembler
+from mandel_solvers import MandelSolverAssembler, make_mandel_solver_space
+from thermal_solvers import ThermalSolverAssembler, make_thermal_solver_space
 
 
 def test_mandel_solvers():

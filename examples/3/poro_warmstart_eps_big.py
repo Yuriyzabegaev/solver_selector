@@ -1,8 +1,10 @@
+from pathlib import Path
+
+from data_scripts import append_experiment_name, get_newest_data_paths
 from mandel_model import make_mandel_setup
 from mandel_solvers import make_mandel_solver_space
+
 from solver_selector.simulation_runner import make_simulation_runner
-from data_scripts import append_experiment_name, get_newest_data_paths
-from pathlib import Path
 
 path = Path(__file__).parent / "../2"
 load_data_paths = get_newest_data_paths(path / "poro_coldstart_s", n_newest=1)
