@@ -10,11 +10,13 @@ num_repeats=$1
 
 targets=(
     "poro_coldstart_eps0.py"
-    "poro_coldstart_eps_big.py"
-    "poro_coldstart_gp.py"
     "poro_warmstart_eps0.py"
+    "poro_coldstart_eps_big.py"
     "poro_warmstart_eps_big.py"
+
+    "poro_coldstart_gp.py"
     "poro_warmstart_gp.py"
+    "poro_warmstart_gp_no_exploration.py"
 )
 
 

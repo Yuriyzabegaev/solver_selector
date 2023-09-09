@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import Sequence
+from typing import Sequence, Optional, Callable
 
 import numpy as np
 from sklearn.ensemble import GradientBoostingRegressor
@@ -94,9 +94,7 @@ class PerformancePredictor(ABC):
         self,
         context: ProblemContext,
     ) -> PerformancePredictionData:
-        """Choose to explore or to exploit and select a solver for the next time step.
-
-        """
+        """Choose to explore or to exploit and select a solver for the next time step."""
 
     @abstractmethod
     def _fit(self, full_contexts: np.ndarray, rewards: np.ndarray):
@@ -179,16 +177,20 @@ class PerformancePredictorEpsGreedy(PerformancePredictor):
         samples_before_fit: int = 10,
         exploration: float = 0.5,
         exploration_rate: float = 0.9,
+        regressor=None,
     ) -> None:
         self.exploration: float = exploration
         self.exploration_rate: float = exploration_rate
 
-        self.regressor = make_pipeline(
-            StandardScaler(),
-            # KNeighborsRegressor(n_neighbors=self.samples_before_fit),
-            GradientBoostingRegressor(),
-            # Ridge(),
-        )
+        if regressor is None:
+            self.regressor = make_pipeline(
+                StandardScaler(),
+                # KNeighborsRegressor(n_neighbors=self.samples_before_fit),
+                GradientBoostingRegressor(),
+                # Ridge(),
+            )
+        else:
+            self.regressor = regressor
 
         super().__init__(decision_template, samples_before_fit=samples_before_fit)
 
@@ -233,6 +235,7 @@ class PerformancePredictorGaussianProcess(PerformancePredictor):
         self,
         decision_template: DecisionTemplate,
         samples_before_fit: int = 10,
+        alpha: float = 1e-1,
     ) -> None:
         kernel = RBF() + DotProduct()
         # RBF(5e-2, length_scale_bounds="fixed")
@@ -240,7 +243,7 @@ class PerformancePredictorGaussianProcess(PerformancePredictor):
             StandardScaler(),
             GaussianProcessRegressor(
                 kernel=kernel,
-                alpha=1e-1,
+                alpha=alpha,
                 n_restarts_optimizer=10,
                 normalize_y=True,
             ),

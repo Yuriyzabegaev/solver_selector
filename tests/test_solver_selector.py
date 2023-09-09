@@ -85,12 +85,18 @@ def test_sovler_selector():
     prediction = solver_selector.select_solver(context)
 
     # Offline learning
-    solver_selector_offline = make_solver_selector(solver_space)
+    new_solver_space = make_solver_space()
+    solver_selector_offline = make_solver_selector(new_solver_space)
     np.random.seed(42)  # Randomness in sklearn
     solver_selector_offline.learn_performance_offline(dataset)
     prediction_offline = solver_selector_offline.select_solver(context)
 
-    assert prediction == prediction_offline
+    assert prediction.score == prediction_offline.score
+    config = solver_space.config_from_decision(
+        prediction.decision
+    )
+    new_config = new_solver_space.config_from_decision(prediction_offline.decision)
+    assert config == new_config
 
 
 if __name__ == "__main__":

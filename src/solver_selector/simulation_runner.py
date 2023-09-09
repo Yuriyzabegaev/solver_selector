@@ -2,6 +2,9 @@ from abc import ABC, abstractmethod
 from typing import Optional, Sequence
 
 import numpy as np
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.neural_network import MLPRegressor
 
 from solver_selector.data_structures import (
     NonlinearSolverStats,
@@ -40,9 +43,7 @@ class SimulationModel(ABC):
 
     @abstractmethod
     def get_context(self) -> ProblemContext:
-        """Get current simulation context that characterizes current simulation state.
-
-        """
+        """Get current simulation context that characterizes current simulation state."""
 
     @abstractmethod
     def assemble_solver(self, solver_config: dict) -> Solver:
@@ -156,6 +157,17 @@ class SimulationRunner:
                     self.solver_selector.memory,  # type: ignore[arg-type]
                 )
 
+        if self.save_statistics_path is not None:
+            metrics_path = (
+                f"{self.save_statistics_path.removesuffix('.npy')}_metrics.npy"
+            )
+            np.save(
+                metrics_path,
+                {
+                    "select_solver_times": self.select_solver_times,
+                    "update_selector_times": self.update_selector_times,
+                },
+            )
         simulation.after_simulation()
         print("Simulation finished successfully.")
 
@@ -181,23 +193,41 @@ def make_simulation_runner(
         print("Using epsilon-greedy exploration")
         exploration = params.get("exploration", 0.5)
         exploration_rate = params.get("exploration_rate", 0.9)
-        for solver_template in all_solvers:
-            predictors.append(
-                PerformancePredictorEpsGreedy(
-                    decision_template=solver_template,
-                    exploration=exploration,
-                    exploration_rate=exploration_rate,
-                    samples_before_fit=samples_before_fit,
+        regressor = params.get("regressor", "gradient_boosting")
+        print("Using regressor:", regressor)
+        if regressor == "gradient_boosting":
+            for solver_template in all_solvers:
+                predictors.append(
+                    PerformancePredictorEpsGreedy(
+                        decision_template=solver_template,
+                        exploration=exploration,
+                        exploration_rate=exploration_rate,
+                        samples_before_fit=samples_before_fit,
+                    )
                 )
-            )
+        elif regressor == "mlp":
+            for solver_template in all_solvers:
+                predictors.append(
+                    PerformancePredictorEpsGreedy(
+                        decision_template=solver_template,
+                        exploration=exploration,
+                        exploration_rate=exploration_rate,
+                        samples_before_fit=samples_before_fit,
+                        regressor=make_pipeline(
+                            StandardScaler(), MLPRegressor(hidden_layer_sizes=(50, 50))
+                        ),
+                    )
+                )
 
     elif predictor == "gaussian_process":
-        print("Using Gaussian process exploration")
+        alpha = params.get("alpha", 1e-1)
+        print("Using Gaussian process, exploration:", alpha)
         for solver_template in all_solvers:
             predictors.append(
                 PerformancePredictorGaussianProcess(
                     decision_template=solver_template,
                     samples_before_fit=samples_before_fit,
+                    alpha=alpha,
                 )
             )
 

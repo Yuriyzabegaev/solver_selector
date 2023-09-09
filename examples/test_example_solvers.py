@@ -3,8 +3,8 @@ from thermal_solvers import ThermalSolverAssembler, make_thermal_solver_space
 
 
 def test_mandel_solvers():
-    make_mandel_solver_space(l_factor=0)
-    make_mandel_solver_space(l_factor=1)
+    make_mandel_solver_space(l_factor="0")
+    make_mandel_solver_space(l_factor="1")
     solver_space = make_mandel_solver_space(l_factor="dynamic")
     solver_templates = solver_space.get_all_solvers()
     assert len(solver_templates) == 1

@@ -5,4 +5,3 @@ __pycache__
 *.msh
 *.geo_unrolled
 times.json
-*.npy

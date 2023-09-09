@@ -100,9 +100,23 @@ class SolverSelector:
             [] for _ in range(len(self.predictors))
         ]
         for selection_data in selection_dataset:
+            # We need to recreate the internal representation of decision to support
+            # using data from different solver tree, e.g. add new solver and train on
+            # data without them.
             decision = self.solver_space.decision_from_config(selection_data.config)
+            new_selection_data = SolverSelectionData(
+                nonlinear_solver_stats=selection_data.nonlinear_solver_stats,
+                prediction=PerformancePredictionData(
+                    score=selection_data.prediction.score,
+                    decision=decision,
+                    context=selection_data.prediction.context,
+                ),
+                config=selection_data.config,
+                rewards=selection_data.rewards,
+                work_time=selection_data.work_time
+            )
             decision_idx = self._get_solver_idx(decision)
-            datasets_for_predictors[decision_idx].append(selection_data)
+            datasets_for_predictors[decision_idx].append(new_selection_data)
 
         for dataset, predictor in zip(datasets_for_predictors, self.predictors):
             predictor.offline_update(dataset)
