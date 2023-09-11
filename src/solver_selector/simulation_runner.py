@@ -214,7 +214,7 @@ def make_simulation_runner(
                         exploration_rate=exploration_rate,
                         samples_before_fit=samples_before_fit,
                         regressor=make_pipeline(
-                            StandardScaler(), MLPRegressor(hidden_layer_sizes=(50, 50))
+                            StandardScaler(), MLPRegressor(hidden_layer_sizes=(100,))
                         ),
                     )
                 )

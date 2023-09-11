@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 import porepy as pp
@@ -46,9 +47,10 @@ ad_min = pp.ad.Function(
 
 class ThermalBase(MassAndEnergyBalance):
     def __init__(self, params: dict | None = None) -> None:
-        data_path = Path(params["spe10_path"])
-        self._perm = np.load(data_path / "spe10_perm_l3.npy").T * PERMEABILITY * 1e6
-        self._phi = np.load(data_path / "spe10_phi_l3.npy").T
+        spe10_phi_path = Path(params["spe10_phi"])
+        spe10_perm_path = Path(params['spe10_perm'])
+        self._perm = np.load(spe10_perm_path).T * PERMEABILITY * 1e6
+        self._phi = np.load(spe10_phi_path).T
         self._phi = np.maximum(self._phi, 1e-10)
         # self._phi = self._phi[:10, :10]
         # self._perm = self._perm[:10, :10]
@@ -610,29 +612,6 @@ solid_constants = pp.SolidConstants(
 )
 
 
-def make_thermal_setup():
-    schedule = np.array(np.array(pumping_schedule).flatten().tolist() + [T_END])
-    # schedule = [0, 10 * dt]
-    # schedule = [0, dt]
-    porepy_setup = ThermalSetup(
-        {
-            "material_constants": {
-                "fluid": fluid_constants,
-                "solid": solid_constants,
-            },
-            "spe10_path": Path(__file__).parent / "spe10_data",
-            "time_manager": pp.TimeManager(
-                schedule=schedule,
-                dt_init=dt,
-                constant_dt=False,
-                dt_min_max=(dt, T_END / 10),
-            ),
-        }
-    )
-    porepy_setup.prepare_simulation()
-    return ThermalSimulationModel(porepy_setup=porepy_setup)
-
-
 @dataclass(frozen=True, kw_only=True, slots=True)
 class ThermalContext(ProblemContext):
     mat_size: int
@@ -800,3 +779,42 @@ class ThermalSimulationModel(PorepySimulation):
     def after_time_step_failure(self, solver_selection_data: SolverSelectionData):
         print("Time step failed")
         self.porepy_setup.time_manager.dt /= 2
+
+
+def make_thermal_setup(
+    model_size: Literal["small", "medium", "large"]
+) -> ThermalSimulationModel:
+    base_path = Path(__file__).parent / 'spe10_data'
+    if model_size == 'small':
+        spe10_phi = base_path / 'spe10_l3_120_phi.npy'
+        spe10_perm = base_path / 'spe10_l3_120_perm.npy'
+    elif model_size == 'medium':
+        spe10_phi = base_path / 'spe10_l3_220_phi.npy'
+        spe10_perm = base_path / 'spe10_l3_220_perm.npy'
+    elif model_size == 'large':
+        spe10_phi = base_path / 'spe10_l3-6_phi.npy'
+        spe10_perm = base_path / 'spe10_l3-6_perm.npy'
+    else:
+        raise ValueError(model_size)
+
+    schedule = np.array(np.array(pumping_schedule).flatten().tolist() + [T_END])
+    # schedule = [0, 10 * dt]
+    # schedule = [0, dt]
+    porepy_setup = ThermalSetup(
+        {
+            "material_constants": {
+                "fluid": fluid_constants,
+                "solid": solid_constants,
+            },
+            "spe10_phi": spe10_phi,
+            "spe10_perm": spe10_perm,
+            "time_manager": pp.TimeManager(
+                schedule=schedule,
+                dt_init=dt,
+                constant_dt=False,
+                dt_min_max=(dt, T_END / 10),
+            ),
+        }
+    )
+    porepy_setup.prepare_simulation()
+    return ThermalSimulationModel(porepy_setup=porepy_setup)

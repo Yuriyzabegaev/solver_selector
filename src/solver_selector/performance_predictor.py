@@ -1,12 +1,12 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import Sequence, Optional, Callable
+from typing import Sequence
 
 import numpy as np
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import RBF, DotProduct
-from sklearn.pipeline import make_pipeline
+from sklearn.gaussian_process import kernels
+from sklearn.pipeline import make_pipeline, Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from solver_selector.data_structures import (
@@ -237,17 +237,8 @@ class PerformancePredictorGaussianProcess(PerformancePredictor):
         samples_before_fit: int = 10,
         alpha: float = 1e-1,
     ) -> None:
-        kernel = RBF() + DotProduct()
-        # RBF(5e-2, length_scale_bounds="fixed")
-        self.regressor = make_pipeline(
-            StandardScaler(),
-            GaussianProcessRegressor(
-                kernel=kernel,
-                alpha=alpha,
-                n_restarts_optimizer=10,
-                normalize_y=True,
-            ),
-        )
+        self.alpha: float = alpha
+        self.regressor: Pipeline
         super().__init__(
             decision_template=decision_template, samples_before_fit=samples_before_fit
         )
@@ -277,8 +268,32 @@ class PerformancePredictorGaussianProcess(PerformancePredictor):
         self.memory_contexts.extend(full_contexts.tolist())
         self.memory_rewards.extend(rewards.tolist())
         if len(self.memory_rewards) >= self.samples_before_fit:
+            if not self.is_initialized:
+                self.regressor = self._build_gp(full_contexts)
             self.regressor.fit(self.memory_contexts, self.memory_rewards)
             self.is_initialized = True
+
+    def _build_gp(self, full_context: np.ndarray) -> Pipeline:
+        feature_size = full_context.shape[1]
+        ones = np.ones(feature_size)
+        kernel = (
+            kernels.RBF(length_scale=ones, length_scale_bounds=(1e-2, 1e+2))
+            # kernels.ExpSineSquared()
+            # kernels.RationalQuadratic()
+            # + kernels.DotProduct()
+            # + kernels.WhiteKernel(noise_level=1)
+            # + 1
+        )
+        # RBF(5e-2, length_scale_bounds="fixed")
+        return make_pipeline(
+            StandardScaler(),
+            GaussianProcessRegressor(
+                kernel=kernel,
+                alpha=self.alpha,
+                n_restarts_optimizer=50,
+                normalize_y=True,
+            ),
+        )
 
 
 class PerformancePredictorRandom(PerformancePredictor):

@@ -10,33 +10,37 @@ app = dash.Dash(__name__)
 
 datasets = None
 
-def make_app(data):
+def make_app(data, default_columns=None):
     global datasets
     datasets = data
     df1 = datasets[0]
+    if default_columns is None:
+        default_columns = df1.columns[:3]
     app.layout = html.Div([
         html.Label('Select X-axis Column'),
         dcc.Dropdown(
             id='x-axis-dropdown',
             options=[{'label': col, 'value': col} for col in df1.columns],
-            value=df1.columns[0]
+            value=default_columns[0]
         ),
         html.Label('Select Y-axis Column'),
         dcc.Dropdown(
             id='y-axis-dropdown',
             options=[{'label': col, 'value': col} for col in df1.columns],
-            value=df1.columns[1]
+            value=default_columns[1]
         ),
         html.Label('Select Z-axis Column'),
         dcc.Dropdown(
             id='z-axis-dropdown',
             options=[{'label': col, 'value': col} for col in df1.columns],
-            value=df1.columns[2]
+            value=default_columns[2]
         ),
         dcc.Graph(id='scatter-plot', style={'width': '90vh', 'height': '90vh', 'justify-content': 'center'})
     ])
 
-    app.run_server(debug=True)
+    # app.run_server(debug=True)
+    app.run()
+    return app
 
 @app.callback(
     Output('scatter-plot', 'figure'),
