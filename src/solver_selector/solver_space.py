@@ -75,7 +75,7 @@ class DecisionTemplate:
         for node_id, param_space in self.parameters.items():
             for param_name, param_value in param_space.numerical.items():
                 defaults[node_id][param_name] = param_value.default
-        return self.select_parameters(defaults)
+        return self.select_parameters(dict(defaults))
 
 
 class SolverConfigNode:
@@ -357,11 +357,15 @@ class ForkNode(SolverConfigNode):
         assert len(config_items) == 1, "Don't know what to do"
         child_name, _ = config_items[0]
         if child_name not in self.options:
-            raise ValueError(
-                f"Inconsistent solver space: Node {self._id}: {self.name}"
-                f" doesn't have a child {child_name}"
-            )
-
+            # A very special case when a child is also the decision node withot a name.
+            if DecisionNodeNames.fork_node in self.options:
+                child_name = DecisionNodeNames.fork_node
+            else:
+                raise ValueError(
+                    f"Inconsistent solver space: Node {self._id}: {self.name}"
+                    f" doesn't have a child {child_name}"
+                )
+        
         child = self.options[child_name]
         child_decision, child_params = child._parse_config_recursively(config)
         return {self._id: child_name} | child_decision, child_params

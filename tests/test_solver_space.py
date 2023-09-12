@@ -166,6 +166,19 @@ def test_splitting():
         expected_configs.remove(config)
 
 
+def test_nested_decisions():
+    a = KrylovSolverDecisionNode(options=[ConstantNode("test0"), ConstantNode("test1")])
+    solver_space = KrylovSolverDecisionNode(options=[a, ConstantNode("test3")])
+    new_solver_space = solver_space.copy()
+    for solver_template in solver_space.get_all_solvers():
+        solver = solver_template.use_defaults()
+        config = solver_space.config_from_decision(solver)
+        new_solver = new_solver_space.decision_from_config(config)
+        new_config = new_solver_space.config_from_decision(new_solver)
+        assert set(solver.subsolvers.values()) == set(new_solver.subsolvers.values())
+        assert config == new_config
+
+
 if __name__ == "__main__":
     test_solver_space()
     test_check_unique_ids()
