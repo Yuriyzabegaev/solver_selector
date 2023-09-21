@@ -208,12 +208,15 @@ class ThermalBase(MassAndEnergyBalance):
         # size = 365.76 / self.units.m
         cell_size_x = 6.096 / self.units.m
         cell_size_y = 3.048 / self.units.m
+        cell_size_z = 3.048 / self.units.m
         self._domain = pp.Domain(
             {
                 "xmin": 0,
                 "xmax": cell_size_x * self._shape[0],
                 "ymin": 0,
                 "ymax": cell_size_y * self._shape[1],
+                'zmin': 0,
+                'zmax': cell_size_z * self._shape[2],
             }
         )
 
@@ -221,6 +224,7 @@ class ThermalBase(MassAndEnergyBalance):
         return {
             "cell_size_x": 6.096 / self.units.m,
             "cell_size_y": 3.048 / self.units.m,
+            'cell_size_z': 3.048 / self.units.m,
         }
 
     def initial_condition(self) -> None:
@@ -792,8 +796,8 @@ def make_thermal_setup(
         spe10_phi = base_path / 'spe10_l3_220_phi.npy'
         spe10_perm = base_path / 'spe10_l3_220_perm.npy'
     elif model_size == 'large':
-        spe10_phi = base_path / 'spe10_l3-6_phi.npy'
-        spe10_perm = base_path / 'spe10_l3-6_perm.npy'
+        spe10_phi = base_path / 'spe10_l3-8_phi.npy'
+        spe10_perm = base_path / 'spe10_l3-8_perm.npy'
     else:
         raise ValueError(model_size)
 

@@ -16,8 +16,11 @@ targets=(
     "poro_warmstart_l_s.py"
     "poro_warmstart_l_m.py"
     "poro_warmstart_l_sm.py"
+    
     "thermal_coldstart_m.py"
     "thermal_warmstart_m_s.py"
+    "thermal_coldstart_l.py"
+    "thermal_warmstart_l_sm.py"
 )
 
 
