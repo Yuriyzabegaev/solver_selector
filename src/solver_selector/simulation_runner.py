@@ -10,13 +10,9 @@ from solver_selector.data_structures import (
     NonlinearSolverStats,
     ProblemContext,
     SolverSelectionData,
+    load_data,
 )
-from solver_selector.performance_predictor import (
-    PerformancePredictor,
-    PerformancePredictorEpsGreedy,
-    PerformancePredictorGaussianProcess,
-    PerformancePredictorRandom,
-)
+from solver_selector.performance_predictor import make_performance_predictor
 from solver_selector.solver_selector import RewardPicker, SolverSelector
 from solver_selector.solver_space import SolverConfigNode
 from solver_selector.utils import TimerContext
@@ -186,63 +182,11 @@ def make_simulation_runner(
         conf = solver_space.config_from_decision(decision=default, optimized_only=True)
         print(i, solver_space.format_config(conf))
 
-    predictor = params.get("predictor", "eps_greedy")
-    samples_before_fit = params.get("samples_before_fit", 10)
-    predictors: list[PerformancePredictor] = []
-    if predictor == "eps_greedy":
-        print("Using epsilon-greedy exploration")
-        exploration = params.get("exploration", 0.5)
-        exploration_rate = params.get("exploration_rate", 0.9)
-        regressor = params.get("regressor", "gradient_boosting")
-        print("Using regressor:", regressor)
-        if regressor == "gradient_boosting":
-            for solver_template in all_solvers:
-                predictors.append(
-                    PerformancePredictorEpsGreedy(
-                        decision_template=solver_template,
-                        exploration=exploration,
-                        exploration_rate=exploration_rate,
-                        samples_before_fit=samples_before_fit,
-                    )
-                )
-        elif regressor == "mlp":
-            for solver_template in all_solvers:
-                predictors.append(
-                    PerformancePredictorEpsGreedy(
-                        decision_template=solver_template,
-                        exploration=exploration,
-                        exploration_rate=exploration_rate,
-                        samples_before_fit=samples_before_fit,
-                        regressor=make_pipeline(
-                            StandardScaler(), MLPRegressor(hidden_layer_sizes=(100,))
-                        ),
-                    )
-                )
-
-    elif predictor == "gaussian_process":
-        alpha = params.get("alpha", 1e-1)
-        print("Using Gaussian process, exploration:", alpha)
-        for solver_template in all_solvers:
-            predictors.append(
-                PerformancePredictorGaussianProcess(
-                    decision_template=solver_template,
-                    samples_before_fit=samples_before_fit,
-                    alpha=alpha,
-                )
-            )
-
-    elif predictor == "random":
-        print("Using random exploration (it does not learn anything!)")
-        for solver_template in all_solvers:
-            predictors.append(
-                PerformancePredictorRandom(
-                    decision_template=solver_template,
-                    samples_before_fit=samples_before_fit,
-                )
-            )
-
-    else:
-        raise ValueError(predictor)
+    predictors = []
+    for solver_template in all_solvers:
+        predictors.append(
+            make_performance_predictor(params=params, solver_template=solver_template)
+        )
 
     solver_selector = SolverSelector(
         solver_space=solver_space,
@@ -251,11 +195,10 @@ def make_simulation_runner(
 
     load_statistics_paths: Sequence[str]
     if load_statistics_paths := params.get("load_statistics_paths", None):
-        data = []
         print("Warm start using data:")
         for path in load_statistics_paths:
             print(path)
-            data.extend(np.load(path, allow_pickle=True).tolist())
+        data = load_data(load_statistics_paths)
         solver_selector.learn_performance_offline(selection_dataset=data)
 
     return SimulationRunner(

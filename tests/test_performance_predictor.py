@@ -5,8 +5,7 @@ from tests_common import DummpyProblemContext, generate_synthetic_data
 from solver_selector.performance_predictor import (
     DEFAULT_EXPECTATION,
     ParametersSpace,
-    PerformancePredictorEpsGreedy,
-    PerformancePredictorGaussianProcess,
+    make_performance_predictor,
 )
 from solver_selector.solver_space import (
     KrylovSolverNode,
@@ -63,28 +62,30 @@ def test_parameters_space():
     assert np.all(reconstructed_array == parameters_array)
 
 
-def make_eps_greedy(solver_template):
-    return PerformancePredictorEpsGreedy(
-        decision_template=solver_template,
-        samples_before_fit=5,
-        exploration=0,
-        exploration_rate=0,
-    )
-
-
-def make_gp(solver_template):
-    return PerformancePredictorGaussianProcess(
-        decision_template=solver_template, samples_before_fit=5
-    )
-
-
-@pytest.mark.parametrize("make_performance_predictor", [make_eps_greedy, make_gp])
-def test_performance_predictor(make_performance_predictor):
+@pytest.mark.parametrize(
+    "params",
+    [
+        {
+            "predictor": "eps_greedy",
+            "regressor": "gradient_boosting",
+        },
+        {
+            "predictor": "eps_greedy",
+            "regressor": "mlp",
+        },
+        {
+            "predictor": "gaussian_process",
+        },
+    ],
+)
+def test_performance_predictor(params):
     solver_space = make_solver_space()
     solver_templates = solver_space.get_all_solvers()
     assert len(solver_templates) == 1
     solver_template = solver_templates[0]
-    performance_predictor = make_performance_predictor(solver_template)
+    performance_predictor = make_performance_predictor(
+        params=params, solver_template=solver_template
+    )
     context = DummpyProblemContext()
 
     np.random.seed(42)  # It is not initialized, so selects randomly.
@@ -110,7 +111,9 @@ def test_performance_predictor(make_performance_predictor):
     assert prediction.score != DEFAULT_EXPECTATION
 
     # Now the same for offline training. Result should be the same for online / offline.
-    performance_predictor_offline = make_performance_predictor(solver_template)
+    performance_predictor_offline = make_performance_predictor(
+        solver_template=solver_template, params=params
+    )
     np.random.seed(42)  # Maybe something random happens inside sklearn.
     performance_predictor_offline.offline_update(simulation_data)
     assert len(performance_predictor_offline.memory_contexts) == 10

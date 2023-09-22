@@ -3,9 +3,12 @@ from collections import defaultdict
 from typing import Sequence
 
 import numpy as np
+from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process import kernels
+from sklearn.linear_model import Ridge
+from sklearn.neural_network import MLPRegressor
 from sklearn.pipeline import make_pipeline, Pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -13,6 +16,7 @@ from solver_selector.data_structures import (
     PerformancePredictionData,
     ProblemContext,
     SolverSelectionData,
+    load_data,
 )
 from solver_selector.solver_space import Decision, DecisionTemplate, number
 
@@ -104,6 +108,7 @@ class PerformancePredictor(ABC):
         self, decision_template: DecisionTemplate, samples_before_fit: int = 10
     ) -> None:
         self.parameters_space: ParametersSpace = ParametersSpace(decision_template)
+        self.decision_template: DecisionTemplate = decision_template
         self.x_space: np.ndarray = self.parameters_space.make_parameters_grid()
         self.memory_rewards: list[float] = []
         self.memory_contexts: list[np.ndarray] = []
@@ -277,7 +282,7 @@ class PerformancePredictorGaussianProcess(PerformancePredictor):
         feature_size = full_context.shape[1]
         ones = np.ones(feature_size)
         kernel = (
-            kernels.RBF(length_scale=ones, length_scale_bounds=(1e-2, 1e+2))
+            kernels.RBF(length_scale=ones, length_scale_bounds=(1e-2, 1e2))
             # kernels.ExpSineSquared()
             # kernels.RationalQuadratic()
             # + kernels.DotProduct()
@@ -314,3 +319,130 @@ class PerformancePredictorRandom(PerformancePredictor):
 
     def _fit(self, full_contexts: np.ndarray, rewards: np.ndarray):
         pass
+
+
+class OnlineStackingRegressor(BaseEstimator, RegressorMixin):
+    def __init__(
+        self,
+        base_regressors: Sequence[BaseEstimator],
+        online_regressor: BaseEstimator,
+    ):
+        self.base_regressors: Sequence[BaseEstimator] = base_regressors
+        self.online_regressor: BaseEstimator = online_regressor
+        self.trust_model = Ridge()
+
+    def _predict_regressors(self, X):
+        predictions = []
+        for reg in self.base_regressors:
+            predictions.append(reg.predict(X))
+        predictions.append(self.online_regressor.predict(X))
+        return np.array(predictions).T
+
+    def fit(self, X, y):
+        self.online_regressor.fit(X, y)
+        predictions = self._predict_regressors(X)
+        self.trust_model.fit(predictions, y)
+        return self
+
+    def predict(self, X):
+        predictions = self._predict_regressors(X)
+        return self.trust_model.predict(predictions)
+
+
+def make_performance_predictor(
+    params: dict, solver_template: DecisionTemplate
+) -> PerformancePredictor:
+    predictor_name = params.get("predictor", "eps_greedy")
+    samples_before_fit = params.get("samples_before_fit", 10)
+
+    if predictor_name == "eps_greedy":
+        print("Using epsilon-greedy exploration")
+        exploration = params.get("exploration", 0.5)
+        exploration_rate = params.get("exploration_rate", 0.9)
+        regressor = params.get("regressor", "gradient_boosting")
+        print("Using regressor:", regressor)
+
+        if regressor == "gradient_boosting":
+            predictor = PerformancePredictorEpsGreedy(
+                decision_template=solver_template,
+                exploration=exploration,
+                exploration_rate=exploration_rate,
+                samples_before_fit=samples_before_fit,
+            )
+
+        elif regressor == "mlp":
+            predictor = PerformancePredictorEpsGreedy(
+                decision_template=solver_template,
+                exploration=exploration,
+                exploration_rate=exploration_rate,
+                samples_before_fit=samples_before_fit,
+                regressor=make_pipeline(
+                    StandardScaler(), MLPRegressor(hidden_layer_sizes=(100,))
+                ),
+            )
+
+        elif regressor == "stacking":
+            predictor = make_stacking(params=params, solver_template=solver_template)
+
+    elif predictor_name == "gaussian_process":
+        alpha = params.get("alpha", 1e-1)
+        print("Using Gaussian process, exploration:", alpha)
+        predictor = PerformancePredictorGaussianProcess(
+            decision_template=solver_template,
+            samples_before_fit=samples_before_fit,
+            alpha=alpha,
+        )
+
+    elif predictor_name == "random":
+        print("Using random exploration (it does not learn anything!)")
+        predictor = PerformancePredictorRandom(
+            decision_template=solver_template,
+            samples_before_fit=samples_before_fit,
+        )
+
+    else:
+        raise ValueError(predictor_name)
+
+    return predictor
+
+
+def make_stacking(
+    params: dict, solver_template: DecisionTemplate
+) -> PerformancePredictor:
+    datasets_paths: Sequence[Sequence[str]] = params["stacking_datasets"]
+    base_predictor_params: dict = params.get("base_predictor", {})
+
+    offline_regressors = []
+    for i, dataset_paths in enumerate(datasets_paths):
+        print("Building base predictor", i, "with data:")
+        for path in dataset_paths:
+            print(path)
+        data = load_data(dataset_paths)
+        solver_data = []
+        for entry in data:
+            if entry.prediction.decision.subsolvers == solver_template.subsolvers:
+                solver_data.append(entry)
+
+        offline_predictor = make_performance_predictor(
+            base_predictor_params, solver_template
+        )
+        offline_predictor.offline_update(solver_data)
+        offline_regressors.append(offline_predictor.regressor)
+
+    online_regressor = make_performance_predictor(
+        base_predictor_params, solver_template
+    ).regressor
+    stacking = OnlineStackingRegressor(
+        base_regressors=offline_regressors, online_regressor=online_regressor
+    )
+
+    samples_before_fit = params.get("samples_before_fit", 0)
+    exploration = params.get("exploration", 0.5)
+    exploration_rate = params.get("exploration_rate", 0.9)
+    return PerformancePredictorEpsGreedy(
+        decision_template=solver_template,
+        samples_before_fit=samples_before_fit,
+        exploration=exploration,
+        exploration_rate=exploration_rate,
+        regressor=stacking,
+    )

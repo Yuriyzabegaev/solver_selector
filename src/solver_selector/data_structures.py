@@ -63,3 +63,10 @@ class SolverSelectionData:
     config: dict
     rewards: Sequence[float]
     work_time: float
+
+
+def load_data(load_statistics_paths: Sequence[str]) -> Sequence[SolverSelectionData]:
+    data = []
+    for path in load_statistics_paths:
+        data.extend(np.load(path, allow_pickle=True).tolist())
+    return data
