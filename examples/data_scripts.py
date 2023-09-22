@@ -108,7 +108,7 @@ def make_time_step_numbers(perf, converged=True):
 
 def make_num_nonlinear_iters(perf, converged=True):
     solution_stats_converged = make_solution_stats(perf, converged=converged)
-    return [x.num_nonlinear_iterations for x in solution_stats_converged]
+    return [len(x.iterations) for x in solution_stats_converged]
 
 
 def make_num_linear_iters(perf, converged=True):
