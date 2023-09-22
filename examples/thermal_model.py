@@ -209,6 +209,10 @@ class ThermalBase(MassAndEnergyBalance):
         cell_size_x = 6.096 / self.units.m
         cell_size_y = 3.048 / self.units.m
         cell_size_z = 3.048 / self.units.m
+        if len(self._shape) == 3:
+            z_shape = self._shape[2]
+        else:
+            z_shape = 1
         self._domain = pp.Domain(
             {
                 "xmin": 0,
@@ -216,7 +220,7 @@ class ThermalBase(MassAndEnergyBalance):
                 "ymin": 0,
                 "ymax": cell_size_y * self._shape[1],
                 'zmin': 0,
-                'zmax': cell_size_z * self._shape[2],
+                'zmax': cell_size_z * z_shape,
             }
         )
 
