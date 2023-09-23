@@ -1,0 +1,1 @@
+We test exploration sensetivity only for cold start of the small model.
