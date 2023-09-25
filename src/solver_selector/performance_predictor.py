@@ -362,6 +362,7 @@ def make_performance_predictor(
         regressor = params.get("regressor", "gradient_boosting")
         print("Using regressor:", regressor)
 
+        predictor: PerformancePredictor
         if regressor == "gradient_boosting":
             predictor = PerformancePredictorEpsGreedy(
                 decision_template=solver_template,
@@ -427,11 +428,13 @@ def make_stacking(
             base_predictor_params, solver_template
         )
         offline_predictor.offline_update(solver_data)
-        offline_regressors.append(offline_predictor.regressor)
+        offline_regressors.append(
+            offline_predictor.regressor  # type:ignore[attr-defined]
+        )
 
     online_regressor = make_performance_predictor(
         base_predictor_params, solver_template
-    ).regressor
+    ).regressor  # type:ignore[attr-defined]
     stacking = OnlineStackingRegressor(
         base_regressors=offline_regressors, online_regressor=online_regressor
     )

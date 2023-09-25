@@ -155,21 +155,16 @@ class SolverConfigNode:
         return results
 
     def _get_submethods(self) -> Sequence[dict[int, str | ParametersSpace]]:
-        submethods: list[dict[int, str | ParametersSpace]] = []
-        params: list[dict[int, str | ParametersSpace]] = []  # Of this method
+        children_submethods_params: list[list[dict[int, str | ParametersSpace]]] = []
         for child in self.children:
-            if isinstance(child, ParametersNode):
-                params.extend(child._get_submethods())
-            else:
-                submethods.extend(child._get_submethods())
+            child_submethods_params = list(child._get_submethods())
+            children_submethods_params.append(child_submethods_params)
 
-        if len(submethods) > 0:
-            for submethod in submethods:
-                for param in params:
-                    submethod.update(param)
-        else:
-            submethods = params
-        return submethods
+        # Merging tuples of dicts into one dict for each decision.
+        merged_results = []
+        for tuple_of_decisions in list(product(*children_submethods_params)):
+            merged_results.append(_merge_dicts(tuple_of_decisions))
+        return merged_results
 
     @staticmethod
     def format_config(config) -> str:
@@ -353,20 +348,27 @@ class ForkNode(SolverConfigNode):
         if self.name in config:
             config = config[self.name]
 
-        config_items = list(config.items())
-        assert len(config_items) == 1, "Don't know what to do"
-        child_name, _ = config_items[0]
-        if child_name not in self.options:
-            # A very special case when a child is also the decision node withot a name.
-            if DecisionNodeNames.fork_node in self.options:
-                child_name = DecisionNodeNames.fork_node
-            else:
-                raise ValueError(
-                    f"Inconsistent solver space: Node {self._id}: {self.name}"
-                    f" doesn't have a child {child_name}"
-                )
-        
-        child = self.options[child_name]
+        chosen_child_name = None
+        for child_name, child in self.options.items():
+            if child_name in config:
+                chosen_child_name = child_name
+                config = config[child_name]
+                break
+
+        # An exotic case when a child is also the decision node without a name.
+        if chosen_child_name is None:
+            child_name = DecisionNodeNames.fork_node
+            child = self.options[child_name]
+            if isinstance(child, ForkNode):
+                chosen_child_name = child_name
+
+        if chosen_child_name is None:
+            raise ValueError(
+                f"Inconsistent solver space: Node {self._id}: {self.name}"
+                f" with options: {[name for name in self.options.keys()]}"
+                f" and config passed: {config}"
+            )
+
         child_decision, child_params = child._parse_config_recursively(config)
         return {self._id: child_name} | child_decision, child_params
 
@@ -394,9 +396,7 @@ class KrylovSolverDecisionNode(ForkNode):
 
 
 class PreconditionerDecisionNode(ForkNode):
-    """Represents a variety of available preconditioner configurations to select from.
-
-    """
+    """Represents a variety of available preconditioner configurations to select from."""
 
     type = DecisionNodeNames.preconditioner
 
@@ -560,6 +560,8 @@ class ParametersNode(SolverConfigNode):
 
 def _merge_dicts(list_of_dicts: Sequence[dict]) -> dict:
     result = {}
+    expected_len = sum(len(d) for d in list_of_dicts)
     for entry in list_of_dicts:
         result.update(entry)
+    assert len(result) == expected_len, "Ids are duplicating."
     return result

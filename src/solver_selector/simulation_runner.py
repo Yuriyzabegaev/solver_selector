@@ -162,7 +162,7 @@ class SimulationRunner:
                 {
                     "select_solver_times": self.select_solver_times,
                     "update_selector_times": self.update_selector_times,
-                },
+                },  # type:ignore[arg-type]
             )
         simulation.after_simulation()
         print("Simulation finished successfully.")

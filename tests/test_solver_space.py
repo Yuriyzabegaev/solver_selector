@@ -2,6 +2,7 @@ from pytest import raises
 
 from solver_selector.solver_space import (
     ConstantNode,
+    ForkNode,
     KrylovSolverDecisionNode,
     KrylovSolverNode,
     NumericalParameter,
@@ -179,7 +180,42 @@ def test_nested_decisions():
         assert config == new_config
 
 
+def test_multiple_forks():
+    a = KrylovSolverDecisionNode(
+        options=[
+            ConstantNode("test0"),
+            SolverConfigNode(
+                name="test1", children=[ParametersNode({"param3": 3, "param4": 4})]
+            ),
+        ]
+    )
+    b = ForkNode(
+        [
+            ConstantNode("option0"),
+            ConstantNode("option1"),
+            SolverConfigNode(
+                name="option2", children=[ParametersNode({"param1": 1, "param2": 2})]
+            ),
+        ],
+        name="options",
+    )
+    solver_space = SolverConfigNode([a, b], name="solver")
+    new_solver_space = solver_space.copy()
+
+    all_solvers = solver_space.get_all_solvers()
+    assert len(all_solvers) == 6
+    for solver_template in solver_space.get_all_solvers():
+        solver = solver_template.use_defaults()
+        config = solver_space.config_from_decision(solver)
+        new_solver = new_solver_space.decision_from_config(config)
+        new_config = new_solver_space.config_from_decision(new_solver)
+        assert set(solver.subsolvers.values()) == set(new_solver.subsolvers.values())
+        assert config == new_config
+
+
 if __name__ == "__main__":
     test_solver_space()
     test_check_unique_ids()
     test_splitting()
+    test_nested_decisions()
+    test_multiple_forks()
