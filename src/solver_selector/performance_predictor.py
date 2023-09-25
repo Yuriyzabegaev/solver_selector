@@ -282,7 +282,7 @@ class PerformancePredictorGaussianProcess(PerformancePredictor):
         feature_size = full_context.shape[1]
         ones = np.ones(feature_size)
         kernel = (
-            kernels.RBF(length_scale=ones, length_scale_bounds=(1e-2, 1e2))
+            kernels.RBF(length_scale=ones, length_scale_bounds=(1e0, 1e2))
             # kernels.ExpSineSquared()
             # kernels.RationalQuadratic()
             # + kernels.DotProduct()
@@ -295,7 +295,7 @@ class PerformancePredictorGaussianProcess(PerformancePredictor):
             GaussianProcessRegressor(
                 kernel=kernel,
                 alpha=self.alpha,
-                n_restarts_optimizer=50,
+                n_restarts_optimizer=10,
                 normalize_y=True,
             ),
         )
