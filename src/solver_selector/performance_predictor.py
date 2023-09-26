@@ -128,13 +128,16 @@ class PerformancePredictor(ABC):
         """Expects the data from many time steps. `rewards` is a 1D array, size
         corresponds to the total number of linear systems. `context`
         is a 2D array: (num_rewards, num_features). You need to repeat the context for
-        each linear system dyring one time step. The same applies to
+        each linear system during one time step. The same applies to
         `numerical_parameters`.
 
         """
         full_contexts_list = []
         rewards_list = []
+        expected = list(self.decision_template.subsolvers.values())
         for selection_data in selection_dataset:
+            vals = list(selection_data.prediction.decision.subsolvers.values())
+            assert expected == vals
             full_context, rewards = self._prepare_fit_data(selection_data)
             full_contexts_list.append(full_context)
             rewards_list.append(rewards)
@@ -407,6 +410,20 @@ def make_performance_predictor(
     return predictor
 
 
+def train_performance_predictor(
+    performance_predictor: PerformancePredictor, data_paths: Sequence[str]
+):
+    solver_template = performance_predictor.decision_template
+    solver_data = []
+    for entry in load_data(data_paths):
+        expected = list(solver_template.subsolvers.values())
+        values = list(entry.prediction.decision.subsolvers.values())
+        if expected == values:
+            solver_data.append(entry)
+    assert len(solver_data) > 0
+    performance_predictor.offline_update(solver_data)
+
+
 def make_stacking(
     params: dict, solver_template: DecisionTemplate
 ) -> PerformancePredictor:
@@ -418,23 +435,21 @@ def make_stacking(
         print("Building base predictor", i, "with data:")
         for path in dataset_paths:
             print(path)
-        data = load_data(dataset_paths)
-        solver_data = []
-        for entry in data:
-            if entry.prediction.decision.subsolvers == solver_template.subsolvers:
-                solver_data.append(entry)
 
         offline_predictor = make_performance_predictor(
             base_predictor_params, solver_template
         )
-        offline_predictor.offline_update(solver_data)
+        train_performance_predictor(offline_predictor, data_paths=dataset_paths)
         offline_regressors.append(
             offline_predictor.regressor  # type:ignore[attr-defined]
         )
 
-    online_regressor = make_performance_predictor(
+    online_predictor = make_performance_predictor(
         base_predictor_params, solver_template
-    ).regressor  # type:ignore[attr-defined]
+    )
+    for dataset_paths in datasets_paths:
+        train_performance_predictor(online_predictor, data_paths=dataset_paths)
+    online_regressor = online_predictor.regressor  # type:ignore[attr-defined]
     stacking = OnlineStackingRegressor(
         base_regressors=offline_regressors, online_regressor=online_regressor
     )
