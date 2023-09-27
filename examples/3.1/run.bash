@@ -9,10 +9,12 @@ fi
 num_repeats=$1
 
 targets=(
+    "poro_eps_default.py"
     "poro_eps_big.py"
     "poro_eps0.py"
     "poro_gp.py"
     
+    "thermal_eps_default.py"
     "thermal_eps_big.py"
     "thermal_eps0.py"
     "thermal_gp.py"
