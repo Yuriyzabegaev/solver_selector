@@ -1,19 +1,19 @@
 from abc import ABC, abstractmethod
-from typing import Optional, Sequence
+from typing import Optional
 
 import numpy as np
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
-from sklearn.neural_network import MLPRegressor
 
 from solver_selector.data_structures import (
     NonlinearSolverStats,
     ProblemContext,
     SolverSelectionData,
-    load_data,
 )
-from solver_selector.performance_predictor import make_performance_predictor
-from solver_selector.solver_selector import RewardPicker, SolverSelector
+
+from solver_selector.solver_selector import (
+    RewardPicker,
+    SolverSelector,
+    make_solver_selector,
+)
 from solver_selector.solver_space import SolverConfigNode
 from solver_selector.utils import TimerContext
 
@@ -175,31 +175,7 @@ def make_simulation_runner(
     params = params or {}
     reward_picker = RewardPicker()
 
-    all_solvers = solver_space.get_all_solvers()
-    print(f"Selecting from {len(all_solvers)} solvers.")
-    for i, solver_template in enumerate(all_solvers):
-        default = solver_template.use_defaults()
-        conf = solver_space.config_from_decision(decision=default, optimized_only=True)
-        print(i, solver_space.format_config(conf))
-
-    predictors = []
-    for solver_template in all_solvers:
-        predictors.append(
-            make_performance_predictor(params=params, solver_template=solver_template)
-        )
-
-    solver_selector = SolverSelector(
-        solver_space=solver_space,
-        predictors=predictors,
-    )
-
-    load_statistics_paths: Sequence[str]
-    if load_statistics_paths := params.get("load_statistics_paths", None):
-        print("Warm start using data:")
-        for path in load_statistics_paths:
-            print(path)
-        data = load_data(load_statistics_paths)
-        solver_selector.learn_performance_offline(selection_dataset=data)
+    solver_selector = make_solver_selector(solver_space=solver_space, params=params)
 
     return SimulationRunner(
         solver_selector=solver_selector, reward_picker=reward_picker, params=params

@@ -153,7 +153,7 @@ def get_newest_data_paths(experiment_name: str, n_newest=3) -> Sequence[str]:
     return values
 
 
-def load_data(experiment_name, n_newest):
+def load_data(experiment_name, n_newest) -> Sequence[Sequence[SolverSelectionData]]:
     paths = get_newest_data_paths(experiment_name, n_newest=n_newest)
     assert len(paths) == n_newest, "Data not found"
     print("Loading data:")

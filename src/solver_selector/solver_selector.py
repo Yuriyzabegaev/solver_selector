@@ -1,4 +1,4 @@
-from typing import Sequence
+from typing import Optional, Sequence
 
 import numpy as np
 
@@ -8,8 +8,12 @@ from solver_selector.data_structures import (
     PerformancePredictionData,
     ProblemContext,
     SolverSelectionData,
+    load_data,
 )
-from solver_selector.performance_predictor import PerformancePredictor
+from solver_selector.performance_predictor import (
+    PerformancePredictor,
+    make_performance_predictor,
+)
 from solver_selector.solver_space import Decision, DecisionTemplate, SolverConfigNode
 
 
@@ -113,7 +117,7 @@ class SolverSelector:
                 ),
                 config=selection_data.config,
                 rewards=selection_data.rewards,
-                work_time=selection_data.work_time
+                work_time=selection_data.work_time,
             )
             decision_idx = self._get_solver_idx(decision)
             datasets_for_predictors[decision_idx].append(new_selection_data)
@@ -126,3 +130,36 @@ class SolverSelector:
             if solver.subsolvers == decision.subsolvers:
                 return idx
         raise ValueError("Index not found.")
+
+
+def make_solver_selector(
+    solver_space: SolverConfigNode, params: Optional[dict] = None
+) -> SolverSelector:
+    params = params or {}
+    all_solvers = solver_space.get_all_solvers()
+    print(f"Selecting from {len(all_solvers)} solvers.")
+    for i, solver_template in enumerate(all_solvers):
+        default = solver_template.use_defaults()
+        conf = solver_space.config_from_decision(decision=default, optimized_only=True)
+        print(i, solver_space.format_config(conf))
+
+    predictors = []
+    for solver_template in all_solvers:
+        predictors.append(
+            make_performance_predictor(params=params, solver_template=solver_template)
+        )
+
+    solver_selector = SolverSelector(
+        solver_space=solver_space,
+        predictors=predictors,
+    )
+
+    load_statistics_paths: Sequence[str]
+    if load_statistics_paths := params.get("load_statistics_paths", None):
+        print("Warm start using data:")
+        for path in load_statistics_paths:
+            print(path)
+        data = load_data(load_statistics_paths)
+        solver_selector.learn_performance_offline(selection_dataset=data)
+
+    return solver_selector

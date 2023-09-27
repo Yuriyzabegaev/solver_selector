@@ -7,7 +7,7 @@ from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process import kernels
-from sklearn.linear_model import Ridge
+from sklearn.linear_model import Ridge, Lasso
 from sklearn.neural_network import MLPRegressor
 from sklearn.pipeline import make_pipeline, Pipeline
 from sklearn.preprocessing import StandardScaler
@@ -134,9 +134,9 @@ class PerformancePredictor(ABC):
         """
         full_contexts_list = []
         rewards_list = []
-        expected = list(self.decision_template.subsolvers.values())
+        expected = set(self.decision_template.subsolvers.values())
         for selection_data in selection_dataset:
-            vals = list(selection_data.prediction.decision.subsolvers.values())
+            vals = set(selection_data.prediction.decision.subsolvers.values())
             assert expected == vals
             full_context, rewards = self._prepare_fit_data(selection_data)
             full_contexts_list.append(full_context)
@@ -332,7 +332,7 @@ class OnlineStackingRegressor(BaseEstimator, RegressorMixin):
     ):
         self.base_regressors: Sequence[BaseEstimator] = base_regressors
         self.online_regressor: BaseEstimator = online_regressor
-        self.trust_model = Ridge()
+        self.trust_model = Ridge(fit_intercept=False)
 
     def _predict_regressors(self, X):
         predictions = []
@@ -447,20 +447,22 @@ def make_stacking(
     online_predictor = make_performance_predictor(
         base_predictor_params, solver_template
     )
-    for dataset_paths in datasets_paths:
-        train_performance_predictor(online_predictor, data_paths=dataset_paths)
     online_regressor = online_predictor.regressor  # type:ignore[attr-defined]
-    stacking = OnlineStackingRegressor(
+    stacking_regressor = OnlineStackingRegressor(
         base_regressors=offline_regressors, online_regressor=online_regressor
     )
 
     samples_before_fit = params.get("samples_before_fit", 0)
     exploration = params.get("exploration", 0.5)
     exploration_rate = params.get("exploration_rate", 0.9)
-    return PerformancePredictorEpsGreedy(
+    stacking = PerformancePredictorEpsGreedy(
         decision_template=solver_template,
         samples_before_fit=samples_before_fit,
         exploration=exploration,
         exploration_rate=exploration_rate,
-        regressor=stacking,
+        regressor=stacking_regressor,
     )
+
+    all_paths = [path for list_paths in datasets_paths for path in list_paths]
+    train_performance_predictor(performance_predictor=stacking, data_paths=all_paths)
+    return stacking
