@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Literal, Optional
+from typing import TYPE_CHECKING, Literal, Optional, Sequence
 
 import numpy as np
 from solvers_common import (
@@ -12,7 +12,9 @@ from solvers_common import (
 )
 
 from solver_selector.solver_space import (
+    CategoryParameterSelector,
     ConstantNode,
+    ForkNode,
     KrylovSolverDecisionNode,
     KrylovSolverNode,
     ParametersNode,
@@ -76,30 +78,44 @@ class SplittingNodeCPR(SolverConfigNode):
 class SplittingNodeSchurCD(SolverConfigNode):
     type = SplittingNames.schur_cd
 
-    def __init__(self) -> None:
-        amg = KrylovSolverDecisionNode.from_preconditioners_list(
-            krylov_solver_name=LinearSolverNames.none,
-            preconditioners=[NodePreconditionerAMG()],
-        )
-        solver_nodes = {
-            SplittingNames.primary_subsolver: [amg],
-            SplittingNames.secondary_subsolver: [amg],
-        }
-        splitting = SplittingNode.from_solvers_list(solver_nodes=solver_nodes)
+    def __init__(
+        self,
+        splitting: SolverConfigNode | None = None,
+        method: SolverConfigNode | None = None,
+        primary_variable: SolverConfigNode | None = None,
+    ) -> None:
+        if splitting is None:
+            amg = KrylovSolverDecisionNode.from_preconditioners_list(
+                krylov_solver_name=LinearSolverNames.none,
+                preconditioners=[NodePreconditionerAMG()],
+            )
+            subsolvers = {
+                SplittingNames.primary_subsolver: [amg],
+                SplittingNames.secondary_subsolver: [amg],
+            }
+            splitting = SplittingNode.from_solvers_list(solver_nodes=subsolvers)
+        if method is None:
+            method = ConstantNode("method", "full")
+        if primary_variable is None:
+            primary_variable = ConstantNode("primary_variable", "pressure")
+
+        self.splitting = splitting
+        self.primary_variable = primary_variable
+        self.method = method
 
         super().__init__(
-            children=[
-                splitting,
-                ConstantNode("primary_variable", "pressure"),
-                ConstantNode("method", "full"),
-            ],
+            children=[splitting, primary_variable, method],
         )
 
     def copy(self):
-        return SplittingNodeSchurCD()
+        return SplittingNodeSchurCD(
+            splitting=self.splitting.copy(),
+            method=self.method.copy(),
+            primary_variable=self.primary_variable.copy(),
+        )
 
 
-def make_thermal_solver_space(solver: Literal["schur", "cpr", "dynamic"]):
+def make_thermal_solver_space(solver: Literal["schur", "cpr", "dynamic", "full"]):
     schur = SplittingNodeSchurCD()
     cpr = SplittingNodeCPR(primary_variable="pressure")
     if solver == "schur":
@@ -108,6 +124,8 @@ def make_thermal_solver_space(solver: Literal["schur", "cpr", "dynamic"]):
         precs = [cpr]
     elif solver == "dynamic":
         precs = [schur, cpr]
+    elif solver == "full":
+        return make_maximum_solvers_setup()
     else:
         raise ValueError(solver)
     return KrylovSolverDecisionNode.from_preconditioners_list(
@@ -115,6 +133,46 @@ def make_thermal_solver_space(solver: Literal["schur", "cpr", "dynamic"]):
         preconditioners=precs,
         other_children=[ParametersNode({"tol": 1e-10, "restart": 30, "maxiter": 10})],
     )
+
+
+def make_maximum_solvers_setup():
+    method = CategoryParameterSelector(
+        options=["full", "upper", "lower"],
+        name="method",
+    )
+
+    amg = NodePreconditionerAMG()
+    # inner_gmres = KrylovSolverNode.from_preconditioners_list(
+    #     [amg.copy()],
+    #     other_children=[ParametersNode({"tol": 0, "restart": 10, "maxiter": 1})],
+    #     name=LinearSolverNames.gmres,
+    # )
+    inner_nokrylov = KrylovSolverNode.from_preconditioners_list(
+        [amg.copy()],
+        name=LinearSolverNames.none,
+    )
+    inner_solver = KrylovSolverDecisionNode(
+        [
+            # inner_gmres,
+            inner_nokrylov,
+        ]
+    )
+
+    subsolvers = {
+        SplittingNames.primary_subsolver: [inner_solver.copy()],
+        SplittingNames.secondary_subsolver: [inner_solver.copy()],
+    }
+    splitting = SplittingNode.from_solvers_list(solver_nodes=subsolvers)
+
+    schur = SplittingNodeSchurCD(method=method, splitting=splitting)
+
+    outer_gmres = KrylovSolverDecisionNode.from_preconditioners_list(
+        krylov_solver_name=LinearSolverNames.gmres,
+        preconditioners=[schur],
+        other_children=[ParametersNode({"tol": 1e-10, "restart": 30, "maxiter": 10})],
+    )
+
+    return outer_gmres
 
 
 #  ------------------- Solvers implementations -------------------

@@ -83,11 +83,11 @@ class SolverConfigNode:
 
     _counter = count(0)
     type: str
-    """Type of solver algorithm. 
-    
+    """Type of solver algorithm.
+
     Used for convenience in subclasses that represent one specific solver.
     It prevents passing a name in the constructor.
-    
+
     """
 
     def __repr__(self) -> str:
@@ -265,8 +265,9 @@ class SolverConfigNode:
 
 
 class ConstantNode(SolverConfigNode):
-    """Solver config node, which does not have any optimized parameters. However, you
-    can provide its consant parameters with `params`.
+    """Config node, which represents a solver with no optimized parameters.
+
+    Constant parameters can be passed with `params`.
 
     """
 
@@ -287,6 +288,34 @@ class ConstantNode(SolverConfigNode):
         if optimized_only:
             return {self.name: {}}
         return {self.name: self.params}
+
+
+class CategoryParameterSelector(SolverConfigNode):
+    """Config node, which represents a selection from a list of categorical parameters."""
+
+    def __init__(self, name: str, options: Sequence[str]):
+        super().__init__(name=name)
+        self.options = options
+
+    def copy(self):
+        return CategoryParameterSelector(name=self.name, options=self.options)
+
+    def config_from_decision(
+        self, decision: Decision, optimized_only: bool = False
+    ) -> dict:
+        chosen = decision.subsolvers[self._id]
+        assert chosen in self.options
+        return {self.name: chosen}
+
+    def _get_submethods(self) -> Sequence[dict[int, str | ParametersSpace]]:
+        return [{self._id: option} for option in self.options]
+
+    def _parse_config_recursively(
+        self, config: dict
+    ) -> tuple[dict[int, str], dict[int, dict[str, number]]]:
+        decision = config
+        assert decision in self.options
+        return {self._id: decision}, {}
 
 
 class DecisionNodeNames:

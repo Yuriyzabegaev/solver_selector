@@ -1,6 +1,7 @@
 from pytest import raises
 
 from solver_selector.solver_space import (
+    CategoryParameterSelector,
     ConstantNode,
     ForkNode,
     KrylovSolverDecisionNode,
@@ -194,7 +195,14 @@ def test_multiple_forks():
             ConstantNode("option0"),
             ConstantNode("option1"),
             SolverConfigNode(
-                name="option2", children=[ParametersNode({"param1": 1, "param2": 2})]
+                name="option2",
+                children=[
+                    ParametersNode({"param1": 1, "param2": 2}),
+                    CategoryParameterSelector(
+                        options=["cat1", "cat2", "cat3", "cat4"],
+                        name="category_param",
+                    ),
+                ],
             ),
         ],
         name="options",
@@ -203,10 +211,11 @@ def test_multiple_forks():
     new_solver_space = solver_space.copy()
 
     all_solvers = solver_space.get_all_solvers()
-    assert len(all_solvers) == 6
-    for solver_template in solver_space.get_all_solvers():
+    assert len(all_solvers) == 12
+    for solver_template in all_solvers:
         solver = solver_template.use_defaults()
         config = solver_space.config_from_decision(solver)
+        print(config)
         new_solver = new_solver_space.decision_from_config(config)
         new_config = new_solver_space.config_from_decision(new_solver)
         assert set(solver.subsolvers.values()) == set(new_solver.subsolvers.values())
