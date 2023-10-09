@@ -11,7 +11,7 @@ from solver_selector.simulation_runner import (
     Solver,
     make_simulation_runner,
 )
-from solver_selector.solver_space import ConstantNode, KrylovSolverDecisionNode
+from solver_selector.solver_space import ConstantNode, ForkNode
 
 
 def generate_solver_stats(multiplier, is_success=True):
@@ -83,7 +83,7 @@ class DummySimulation(SimulationModel):
 
 
 def test_simulation_runner():
-    solver_space = KrylovSolverDecisionNode(
+    solver_space = ForkNode(
         [
             ConstantNode("solver1"),
             ConstantNode("solver2"),
@@ -101,7 +101,7 @@ def test_simulation_runner():
 
 
 def test_simulation_runner_bad_solver():
-    solver_space = KrylovSolverDecisionNode([ConstantNode("solver3")])
+    solver_space = ForkNode([ConstantNode("solver3")])
     simulation_runner = make_simulation_runner(
         solver_space, {"print_solver": True, "print_time": True}
     )

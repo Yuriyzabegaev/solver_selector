@@ -67,7 +67,6 @@ class DecisionTemplate:
             assert node_id in parameters
             for param_name, param_value in parameters[node_id].items():
                 assert param_name in param_space.numerical
-                assert isinstance(param_value, number)  # type: ignore[misc, arg-type]
         return Decision(subsolvers=self.subsolvers, parameters=parameters)
 
     def use_defaults(self) -> Decision:
@@ -402,28 +401,6 @@ class ForkNode(SolverConfigNode):
         return {self._id: child_name} | child_decision, child_params
 
 
-class KrylovSolverDecisionNode(ForkNode):
-    """Represents a variety of available Krylov solver configurations to select from."""
-
-    @classmethod
-    def from_preconditioners_list(
-        self,
-        krylov_solver_name: str,
-        preconditioners: Sequence[SolverConfigNode],
-        other_children: Optional[Sequence[SolverConfigNode]] = None,
-    ) -> "KrylovSolverDecisionNode":
-        """Use the given krylov solver and one of the given preconditioners"""
-        return KrylovSolverDecisionNode(
-            options=[
-                KrylovSolverNode.from_preconditioners_list(
-                    name=krylov_solver_name,
-                    preconditioners=[prec for prec in preconditioners],
-                    other_children=other_children,
-                )
-            ]
-        )
-
-
 class PreconditionerDecisionNode(ForkNode):
     """Represents a variety of available preconditioner configurations to select from."""
 
@@ -473,8 +450,7 @@ class SplittingNode(SolverConfigNode):
 
         """
         solvers_list = [
-            KrylovSolverDecisionNode(solvers, name=key)
-            for key, solvers in solver_nodes.items()
+            ForkNode(solvers, name=key) for key, solvers in solver_nodes.items()
         ]
         return cls(solver_nodes=solvers_list, **kwargs)
 

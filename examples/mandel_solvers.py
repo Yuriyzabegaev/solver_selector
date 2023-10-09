@@ -11,7 +11,7 @@ from solvers_common import (
 
 from solver_selector.solver_space import (
     ConstantNode,
-    KrylovSolverDecisionNode,
+    KrylovSolverNode,
     NumericalParameter,
     ParametersNode,
     SolverConfigNode,
@@ -69,17 +69,9 @@ def make_mandel_solver_space(l_factor: Literal["0", "1", "dynamic"]):
 
     prec_primary = DirectSolverNode()
     prec_secondary = DirectSolverNode()
-    # prec_secondary = LinearSolverNode2.from_preconditioners_list(
-    #     name=LinearSolverNames.none,
-    #     preconditioners=[NodePreconditionerAMG(config={'max_iter': 1})],
-    # )
-    # prec_secondary = LinearSolverNode2.from_preconditioners_list(
-    #     name=LinearSolverNames.none,
-    #     preconditioners=[NodePreconditionerAMG(config={'max_iter': 10})],
-    # )
 
-    return KrylovSolverDecisionNode.from_preconditioners_list(
-        krylov_solver_name=LinearSolverNames.gmres,
+    return KrylovSolverNode.from_preconditioners_list(
+        name=LinearSolverNames.gmres,
         preconditioners=[
             FixedStressNode(
                 {

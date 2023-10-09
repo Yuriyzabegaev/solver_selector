@@ -18,7 +18,12 @@ from solver_selector.data_structures import (
     SolverSelectionData,
     load_data,
 )
-from solver_selector.solver_space import Decision, DecisionTemplate, number
+from solver_selector.solver_space import (
+    Decision,
+    DecisionTemplate,
+    NumericalParameter,
+    number,
+)
 
 DEFAULT_EXPECTATION = 100.0
 
@@ -30,61 +35,62 @@ class ParametersSpace:
     """
 
     def __init__(self, decision_template: DecisionTemplate):
-        param_names = []
-        bounds = []
-        defaults = []
         node_ids = []
-        is_optimized = []
+        names = []
+        numerical_params = []
 
         for node_id, entry in decision_template.parameters.items():
             for name, numerical_param in entry.numerical.items():
-                param_names.append(name)
+                names.append(name)
                 node_ids.append(node_id)
-                bounds.append(numerical_param.bounds)
-                defaults.append(numerical_param.default)
-                is_optimized.append(numerical_param.is_optimized)
+                numerical_params.append(numerical_param)
 
-        self.param_names: Sequence[str] = param_names
-        self.bounds: Sequence[tuple[float, float]] = bounds
-        self.defaults: Sequence[number] = defaults
+        self.names: Sequence[str] = names
         self.node_ids: Sequence[int] = node_ids
-        self.is_optimized: Sequence[bool] = is_optimized
+        self.numerical_params: Sequence[NumericalParameter] = numerical_params
         self.decision_templace: DecisionTemplate = decision_template
 
     def decision_from_array(self, decision_data: np.ndarray) -> Decision:
         """Transform a numpy array of selected parameters to the actual decision."""
         params: dict[int, dict[str, number]] = defaultdict(lambda: dict())
-        iterator = zip(
-            self.node_ids, self.param_names, self.is_optimized, self.defaults
-        )
         i = 0
-        for node_id, param_name, is_optimized, default in iterator:
-            if is_optimized:
+        iterator = zip(self.node_ids, self.names, self.numerical_params)
+        for node_id, param_name, param in iterator:
+            if param.is_optimized:
                 params[node_id][param_name] = decision_data[i]
                 i += 1
             else:
-                params[node_id][param_name] = default
+                params[node_id][param_name] = param.default
         return self.decision_templace.select_parameters(dict(params))
 
     def array_from_decision(self, decision: Decision) -> np.ndarray:
         """Transform the decision to a numpy array."""
         data = []
-        iterator = zip(self.node_ids, self.param_names, self.is_optimized)
+        iterator = zip(self.node_ids, self.names, self.numerical_params)
 
-        for node_id, param_name, is_optimized in iterator:
-            if is_optimized:
+        for node_id, param_name, param in iterator:
+            if param.is_optimized:
                 data.append(decision.parameters[node_id][param_name])
         return np.array(data, dtype=float)
 
     def make_parameters_grid(self, num_samples: int = 20) -> np.ndarray:
         """Makes a grid of points to sample the parameters space."""
 
-        # TODO: problems with log scale
         linspaces_1d = []
-        for is_optimized, bounds in zip(self.is_optimized, self.bounds):
-            if not is_optimized:
+        for param in self.numerical_params:
+            if not param.is_optimized:
                 continue
-            linspaces_1d.append(np.linspace(*bounds, num=num_samples))
+            if param.scale == "log10":
+                # TODO: problems with log scale
+                raise NotImplementedError
+
+            if param.dtype == "int":
+                linspace = np.linspace(*param.bounds, num=num_samples, dtype=int)
+            elif param.dtype == "float":
+                linspace = np.linspace(*param.bounds, num=num_samples)
+            else:
+                raise ValueError(param.dtype)
+            linspaces_1d.append(linspace)
 
         x_space = np.atleast_2d(np.meshgrid(*linspaces_1d, indexing="ij"))
         x_space = x_space.reshape(x_space.shape[0], -1).T

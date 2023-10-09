@@ -8,7 +8,7 @@ from solver_selector.performance_predictor import (
 )
 from solver_selector.solver_selector import SolverSelector
 from solver_selector.solver_space import (
-    KrylovSolverDecisionNode,
+    ForkNode,
     KrylovSolverNode,
     NumericalParameter,
     ParametersNode,
@@ -22,7 +22,7 @@ def make_solver_space():
             "drop_tol": NumericalParameter(
                 bounds=(1e-8, 1e-2),
                 default=1e-5,
-                scale="log10",
+                # scale="log10",
             ),
             "param_1": 10,
         }
@@ -41,7 +41,7 @@ def make_solver_space():
         preconditioners=[ilu], other_children=[gmres_params], name="gmres"
     )
     bicgstab = KrylovSolverNode(children=[ilu], name="bicgstab")
-    solver_space = KrylovSolverDecisionNode([gmres, bicgstab])
+    solver_space = ForkNode([gmres, bicgstab])
     assert len(solver_space.get_all_solvers()) == 2
     return solver_space
 

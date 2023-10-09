@@ -4,7 +4,6 @@ from solver_selector.solver_space import (
     CategoryParameterSelector,
     ConstantNode,
     ForkNode,
-    KrylovSolverDecisionNode,
     KrylovSolverNode,
     NumericalParameter,
     ParametersNode,
@@ -78,7 +77,7 @@ def test_solver_space():
     bicgstab = KrylovSolverNode.from_preconditioners_list(precs, name="bicgstab")
     direct = ConstantNode("direct")
 
-    solver_space = KrylovSolverDecisionNode(options=[gmres, bicgstab, direct])
+    solver_space = ForkNode(options=[gmres, bicgstab, direct])
 
     all_solver_templates = solver_space.get_all_solvers()
     assert len(all_solver_templates) == 13
@@ -169,8 +168,8 @@ def test_splitting():
 
 
 def test_nested_decisions():
-    a = KrylovSolverDecisionNode(options=[ConstantNode("test0"), ConstantNode("test1")])
-    solver_space = KrylovSolverDecisionNode(options=[a, ConstantNode("test3")])
+    a = ForkNode(options=[ConstantNode("test0"), ConstantNode("test1")])
+    solver_space = ForkNode(options=[a, ConstantNode("test3")])
     new_solver_space = solver_space.copy()
     for solver_template in solver_space.get_all_solvers():
         solver = solver_template.use_defaults()
@@ -182,7 +181,7 @@ def test_nested_decisions():
 
 
 def test_multiple_forks():
-    a = KrylovSolverDecisionNode(
+    a = ForkNode(
         options=[
             ConstantNode("test0"),
             SolverConfigNode(

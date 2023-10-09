@@ -7,6 +7,7 @@ import petsc4py
 from petsc4py import PETSc
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import LinearOperator, gmres, spsolve
+import pyamg
 
 from solver_selector.simulation_runner import SimulationModel
 from solver_selector.solver_space import KrylovSolverNode, SolverConfigNode
@@ -19,6 +20,7 @@ petsc4py.init()
 class LinearSolverNames:
     richardson = "richardson"
     gmres = "gmres"
+    fgmres = "fgmres"
     none = "none"
     direct = "direct"
 
@@ -279,6 +281,47 @@ class LinearSolverGMRES(LinearSolver):
         )
 
 
+class LinearSolverFGMRES(LinearSolver):
+    def __init__(
+        self,
+        preconditioner: Preconditioner,
+        config: dict,
+    ) -> None:
+        # # maxiter is a number of outer GMRES iterations.
+        # for param in ["restart", "tol", "maxiter"]:
+        #     assert param in config, "Parameter not provided."
+        super().__init__(preconditioner=preconditioner, config=config)
+
+    def solve(self, b, x0=None, tol: Optional[float] = None):
+        tol = tol or self.config["tol"]
+        restart = self.config["restart"]
+        maxiter = self.config["maxiter"]
+        if x0 is None:
+            res_0 = np.linalg.norm(b)
+        else:
+            res_0 = np.linalg.norm(self.mat.dot(x0) - b)
+        residuals = []
+        x, info = pyamg.krylov.fgmres(
+            A=self.mat,
+            b=b,
+            x0=x0,
+            tol=tol,
+            restrt=restart,
+            maxiter=maxiter,
+            M=self.preconditioner.aslinearoperator(),
+            residuals=residuals,
+        )
+
+        res_end = np.linalg.norm(self.mat.dot(x) - b)
+
+        return x, LinearSolverStatistics(
+            num_iters=len(residuals),
+            is_converged=(info == 0),
+            is_diverged=(info < 0),
+            residual_decrease=float(res_end / res_0),
+        )
+
+
 class NoneLinearSolver(LinearSolver):
     def solve(self, b, x0=None, tol: Optional[float] = None):
         return self.preconditioner.apply(b), LinearSolverStatistics(
@@ -301,59 +344,6 @@ class LinearSolverDirect(LinearSolver):
 #  ------------------- Solver assembling routines -------------------
 
 
-# def assemble_splitting(
-#     self, splitting_config: dict, problem_description: ProblemDescription
-# ):
-#     splitting_type, splitting_options = list(splitting_config.items())[0]
-
-#     linear_solver_primary = self.assemble_linear_solver(
-#         linear_solver_config=splitting_options['primary'],
-#         problem_description=problem_description,
-#     )
-#     linear_solver_secondary = self.assemble_linear_solver(
-#         linear_solver_config=splitting_options['secondary'],
-#         problem_description=problem_description,
-#     )
-
-#     if splitting_type == SplittingNames.schur:
-#         return SplittingSchurDiag(
-#             linear_solver_primary=linear_solver_primary,
-#             linear_solver_secondary=linear_solver_secondary,
-#             problem_description=problem_description,
-#             config=splitting_options,
-#         )
-#     elif splitting_type == SplittingNames.fixed_stress:
-#         return SplittingFixedStress(
-#             linear_solver_primary=linear_solver_primary,
-#             linear_solver_secondary=linear_solver_secondary,
-#             problem_description=problem_description,
-#             config=splitting_options,
-#         )
-#     elif splitting_type == SplittingNames.undrained_split:
-#         return SplittingUndrained(
-#             linear_solver_primary=linear_solver_primary,
-#             linear_solver_secondary=linear_solver_secondary,
-#             problem_description=problem_description,
-#             config=splitting_options,
-#         )
-#     elif splitting_type == SplittingNames.schur_cd:
-#         return SplittingSchurCD(
-#             linear_solver_primary=linear_solver_primary,
-#             linear_solver_secondary=linear_solver_secondary,
-#             problem_description=problem_description,
-#             config=splitting_options,
-#         )
-#     elif splitting_type == SplittingNames.cpr:
-#         return SplittingCPR(
-#             linear_solver_primary=linear_solver_primary,
-#             linear_solver_secondary=linear_solver_secondary,
-#             problem_description=problem_description,
-#             config=splitting_options,
-#         )
-
-#     raise ValueError(splitting_type)
-
-
 class SolverAssembler:
     def __init__(self, simulation: SimulationModel):
         self.simulation: SimulationModel = simulation
@@ -371,6 +361,8 @@ class SolverAssembler:
                 solver = NoneLinearSolver(preconditioner, config=linear_solver_config)
             case LinearSolverNames.gmres:
                 solver = LinearSolverGMRES(preconditioner, config=linear_solver_config)
+            case LinearSolverNames.fgmres:
+                solver = LinearSolverFGMRES(preconditioner, config=linear_solver_config)
             case LinearSolverNames.direct:
                 solver = LinearSolverDirect(preconditioner, config=linear_solver_config)
             case _:
@@ -391,48 +383,3 @@ class SolverAssembler:
             case _:
                 raise ValueError(preconditioner_type)
         return preconditioner
-
-
-# def assemble_splitting(
-#     self, splitting_config: dict, problem_description: ProblemDescription
-# ):
-#     splitting_type, splitting_options = list(splitting_config.items())[0]
-
-
-#     if splitting_type == SplittingNames.schur:
-#         return SplittingSchurDiag(
-#             linear_solver_primary=linear_solver_primary,
-#             linear_solver_secondary=linear_solver_secondary,
-#             problem_description=problem_description,
-#             config=splitting_options,
-#         )
-#     elif splitting_type == SplittingNames.fixed_stress:
-#         return SplittingFixedStress(
-#             linear_solver_primary=linear_solver_primary,
-#             linear_solver_secondary=linear_solver_secondary,
-#             problem_description=problem_description,
-#             config=splitting_options,
-#         )
-#     elif splitting_type == SplittingNames.undrained_split:
-#         return SplittingUndrained(
-#             linear_solver_primary=linear_solver_primary,
-#             linear_solver_secondary=linear_solver_secondary,
-#             problem_description=problem_description,
-#             config=splitting_options,
-#         )
-#     elif splitting_type == SplittingNames.schur_cd:
-#         return SplittingSchurCD(
-#             linear_solver_primary=linear_solver_primary,
-#             linear_solver_secondary=linear_solver_secondary,
-#             problem_description=problem_description,
-#             config=splitting_options,
-#         )
-#     elif splitting_type == SplittingNames.cpr:
-#         return SplittingCPR(
-#             linear_solver_primary=linear_solver_primary,
-#             linear_solver_secondary=linear_solver_secondary,
-#             problem_description=problem_description,
-#             config=splitting_options,
-#         )
-
-#     raise ValueError(splitting_type)

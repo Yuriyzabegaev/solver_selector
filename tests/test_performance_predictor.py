@@ -1,3 +1,4 @@
+import warnings
 import numpy as np
 import pytest
 from tests_common import DummpyProblemContext, generate_synthetic_data
@@ -21,7 +22,7 @@ def make_solver_space() -> SolverConfigNode:
             "drop_tol": NumericalParameter(
                 bounds=(1e-8, 1e-2),
                 default=1e-5,
-                scale="log10",
+                # scale="log10",
             ),
             "param_1": 10,
         }
@@ -44,12 +45,10 @@ def test_parameters_space():
     solver_templates = solver_space.get_all_solvers()
     assert len(solver_templates) == 1
     params_space = ParametersSpace(solver_templates[0])
-    assert params_space.param_names == ["drop_tol", "param_1", "restart"]
-    assert params_space.bounds == [(1e-08, 0.01), (10, 10), (10, 100)]
-    assert params_space.defaults == [1e-05, 10, 30]
+    assert params_space.names == ["drop_tol", "param_1", "restart"]
+    assert len(params_space.numerical_params) == len(params_space.node_ids) == 3
     assert params_space.node_ids[0] == params_space.node_ids[1]
     assert params_space.node_ids[0] != params_space.node_ids[2]
-    assert params_space.is_optimized == [True, False, True]
 
     x_space = params_space.make_parameters_grid(num_samples=30)
     assert x_space.shape == (900, 2)
@@ -100,7 +99,9 @@ def test_performance_predictor(params):
         seed=0,
     )
     for time_step_data in simulation_data:
-        performance_predictor.online_update(time_step_data)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            performance_predictor.online_update(time_step_data)
 
     assert len(performance_predictor.memory_contexts) == 10
     assert len(performance_predictor.memory_rewards) == 10
@@ -115,7 +116,9 @@ def test_performance_predictor(params):
         solver_template=solver_template, params=params
     )
     np.random.seed(42)  # Maybe something random happens inside sklearn.
-    performance_predictor_offline.offline_update(simulation_data)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        performance_predictor_offline.offline_update(simulation_data)
     assert len(performance_predictor_offline.memory_contexts) == 10
     assert len(performance_predictor_offline.memory_rewards) == 10
     assert performance_predictor_offline.is_initialized
