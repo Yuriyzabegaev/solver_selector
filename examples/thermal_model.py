@@ -48,7 +48,7 @@ ad_min = pp.ad.Function(
 class ThermalBase(MassAndEnergyBalance):
     def __init__(self, params: dict | None = None) -> None:
         spe10_phi_path = Path(params["spe10_phi"])
-        spe10_perm_path = Path(params['spe10_perm'])
+        spe10_perm_path = Path(params["spe10_perm"])
         self._perm = np.load(spe10_perm_path).T * PERMEABILITY * 1e6
         self._phi = np.load(spe10_phi_path).T
         self._phi = np.maximum(self._phi, 1e-10)
@@ -219,8 +219,8 @@ class ThermalBase(MassAndEnergyBalance):
                 "xmax": cell_size_x * self._shape[0],
                 "ymin": 0,
                 "ymax": cell_size_y * self._shape[1],
-                'zmin': 0,
-                'zmax': cell_size_z * z_shape,
+                "zmin": 0,
+                "zmax": cell_size_z * z_shape,
             }
         )
 
@@ -228,7 +228,7 @@ class ThermalBase(MassAndEnergyBalance):
         return {
             "cell_size_x": 6.096 / self.units.m,
             "cell_size_y": 3.048 / self.units.m,
-            'cell_size_z': 3.048 / self.units.m,
+            "cell_size_z": 3.048 / self.units.m,
         }
 
     def initial_condition(self) -> None:
@@ -245,14 +245,10 @@ class ThermalBase(MassAndEnergyBalance):
                 values=vals, time_step_index=time_step_index
             )
 
-        self.update_time_dependent_ad_arrays(initial=True)
-
     def before_nonlinear_loop(self) -> None:
         super().before_nonlinear_loop()
         state = self.equation_system.get_variable_values(time_step_index=0)
         self.equation_system.set_variable_values(state, iterate_index=0)
-        self.update_time_dependent_ad_arrays(initial=False)
-        # self.fluid_source(self.mdg.subdomains())
 
     def after_nonlinear_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
@@ -263,13 +259,6 @@ class ThermalBase(MassAndEnergyBalance):
         print(f"visc min: {visc.min()}, max: {visc.max()}")
         print(f"rho min: {dens.min()}, max: {dens.max()}")
         super().after_nonlinear_convergence(solution, errors, iteration_counter)
-
-    # def before_nonlinear_iteration(self):
-    #     super().before_nonlinear_iteration()
-    # subdomains = self.mdg.subdomains()
-    # self.schur_ad = self.set_schur_approximation(subdomains)
-
-    # PreconditionerSchur,
 
 
 class ThermalSource(ThermalBase):
@@ -405,7 +394,7 @@ class ThermalSource(ThermalBase):
         )
 
         source_switch = TimeDependentDenseArray(
-            self.KEY_FLUID_SOURCE, subdomains=subdomains
+            self.KEY_FLUID_SOURCE, domains=subdomains
         )
 
         return super_source + (outlets + inlets) * source_switch
@@ -453,7 +442,7 @@ class ThermalSource(ThermalBase):
         outlets = self.energy_outlet(subdomains)
 
         source_switch = TimeDependentDenseArray(
-            self.KEY_FLUID_SOURCE, subdomains=subdomains
+            self.KEY_FLUID_SOURCE, domains=subdomains
         )
         # source_switch = 1
         return super_source + (inlets + outlets) * source_switch
@@ -463,69 +452,35 @@ class ThermalSource(ThermalBase):
         res[:] = self.is_pumping()
         return res
 
-    def update_time_dependent_ad_arrays(self, initial: bool) -> None:
+    def update_time_dependent_ad_arrays(self) -> None:
+        super().update_time_dependent_ad_arrays()
         for sd, data in self.mdg.subdomains(return_data=True):
-            if initial:
-                vals = self.update_source_pumping([sd])
-                pp.set_solution_values(
-                    name=self.KEY_FLUID_SOURCE,
-                    values=vals,
-                    data=data,
-                    time_step_index=0,
+            if self.KEY_FLUID_SOURCE in data[pp.ITERATE_SOLUTIONS]:
+                # Copy old values from iterate to the solution.
+                vals = pp.get_solution_values(
+                    name=self.KEY_FLUID_SOURCE, data=data, iterate_index=0
                 )
             else:
-                # Copy old values from iterate to the solution.
-                vals = data[pp.ITERATE_SOLUTIONS][self.KEY_FLUID_SOURCE][0]
-                pp.set_solution_values(
-                    name=self.KEY_FLUID_SOURCE,
-                    values=vals,
-                    data=data,
-                    time_step_index=0,
-                )
+                # First time step.
+                vals = self.update_source_pumping([sd])
+            pp.set_solution_values(
+                name=self.KEY_FLUID_SOURCE, values=vals, data=data, time_step_index=0
+            )
 
             vals = self.update_source_pumping([sd])
             pp.set_solution_values(
-                name=self.KEY_FLUID_SOURCE,
-                values=vals,
-                data=data,
-                iterate_index=0,
+                name=self.KEY_FLUID_SOURCE, values=vals, data=data, iterate_index=0
             )
 
 
 class ThermalBC(ThermalBase):
-    def bc_type_fourier(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         bounds = self.domain_boundary_sides(sd).all_bf
         return pp.BoundaryCondition(sd, bounds, "neu")
 
-    def bc_values_fourier(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
-        if len(subdomains) == 0:
-            return pp.wrap_as_ad_array(np.zeros(0))
-
-        vals_list = []
-
-        for sd in subdomains:
-            vals = np.zeros(sd.num_faces)
-            # bounds = self.domain_boundary_sides(sd).all_bf
-            # vals[bounds] = self.fluid.temperature()
-            vals_list.append(vals)
-        return pp.wrap_as_ad_array(np.concatenate(vals_list))
-
-    def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         bounds = self.domain_boundary_sides(sd).all_bf
         return pp.BoundaryCondition(sd, bounds, "neu")
-
-    def bc_values_darcy(self, subdomains: list[pp.Grid]) -> pp.ad.DenseArray:
-        if len(subdomains) == 0:
-            return pp.wrap_as_ad_array(np.zeros(0))
-
-        vals_list = []
-
-        for sd in subdomains:
-            vals = np.zeros(sd.num_faces)
-            # bounds = self.domain_boundary_sides(sd).all_bf
-            # vals[bounds] = self.fluid.pressure()
-            vals_list.append(vals)
-        return pp.wrap_as_ad_array(np.concatenate(vals_list))
 
 
 class SchurCDApproximation(ThermalBase):
@@ -563,11 +518,26 @@ class SchurCDApproximation(ThermalBase):
         viscosity = self.fluid_viscosity_formula(T_prev)
         mobility = pp.ad.Scalar(1) / viscosity
         fluid_density = self._fluid_density_formula(subdomains, p_prev, T_prev)
+
+        def enthalpy_dirichlet(boundary_grids):
+            result = self.fluid_enthalpy(boundary_grids)
+            result *= self.mobility_rho(boundary_grids)
+            return result
+        boundary_operator_enthalpy = (
+            self._combine_boundary_operators(  # type: ignore[call-arg]
+                subdomains=subdomains,
+                dirichlet_operator=enthalpy_dirichlet,
+                neumann_operator=self.enthalpy_flux,
+                bc_type=self.bc_type_enthalpy_flux,
+                name="bc_values_enthalpy",
+            )
+        )
+
         convection_flux = self.advective_flux(
             subdomains,
             self.fluid_enthalpy(subdomains) * mobility * fluid_density,
             discr,
-            self.bc_values_enthalpy_flux(subdomains),
+            boundary_operator_enthalpy,
             self.interface_enthalpy_flux,
         )
         convection_flux.set_name("schur_convection_flux")
@@ -792,16 +762,16 @@ class ThermalSimulationModel(PorepySimulation):
 def make_thermal_setup(
     model_size: Literal["small", "medium", "large"]
 ) -> ThermalSimulationModel:
-    base_path = Path(__file__).parent / 'spe10_data'
-    if model_size == 'small':
-        spe10_phi = base_path / 'spe10_l3_120_phi.npy'
-        spe10_perm = base_path / 'spe10_l3_120_perm.npy'
-    elif model_size == 'medium':
-        spe10_phi = base_path / 'spe10_l3_220_phi.npy'
-        spe10_perm = base_path / 'spe10_l3_220_perm.npy'
-    elif model_size == 'large':
-        spe10_phi = base_path / 'spe10_l3-8_phi.npy'
-        spe10_perm = base_path / 'spe10_l3-8_perm.npy'
+    base_path = Path(__file__).parent / "spe10_data"
+    if model_size == "small":
+        spe10_phi = base_path / "spe10_l3_120_phi.npy"
+        spe10_perm = base_path / "spe10_l3_120_perm.npy"
+    elif model_size == "medium":
+        spe10_phi = base_path / "spe10_l3_220_phi.npy"
+        spe10_perm = base_path / "spe10_l3_220_perm.npy"
+    elif model_size == "large":
+        spe10_phi = base_path / "spe10_l3-8_phi.npy"
+        spe10_perm = base_path / "spe10_l3-8_perm.npy"
     else:
         raise ValueError(model_size)
 
