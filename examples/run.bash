@@ -7,7 +7,7 @@ if [ $# -eq 0 ]; then
 fi
 
 cd 1
-# bash run.bash $1
+bash run.bash $1
 
 cd ../2
 bash run.bash $1
@@ -16,4 +16,7 @@ bash run.bash $1
 # bash run.bash $1
 
 cd ../3.1
+bash run.bash $1
+
+cd ../4
 bash run.bash $1

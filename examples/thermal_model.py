@@ -770,8 +770,8 @@ def make_thermal_setup(
         spe10_phi = base_path / "spe10_l3_220_phi.npy"
         spe10_perm = base_path / "spe10_l3_220_perm.npy"
     elif model_size == "large":
-        spe10_phi = base_path / "spe10_l3-8_phi.npy"
-        spe10_perm = base_path / "spe10_l3-8_perm.npy"
+        spe10_phi = base_path / "spe10_l3_mirrored_phi.npy"
+        spe10_perm = base_path / "spe10_l3_mirrored_perm.npy"
     else:
         raise ValueError(model_size)
 
