@@ -78,8 +78,6 @@ class SolverSelector:
         # score.
         predictions: list[PerformancePredictionData] = []
         for predictor in self.predictors:
-            # need a copy because we'll set numerical decision values
-            # decision = copy.deepcopy(decision, {})
             predictions.append(predictor.select_solver_parameters(context))
 
         # Select the proposed algorithm with maximum score.
