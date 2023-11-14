@@ -4,10 +4,10 @@ from typing import Optional
 
 import numpy as np
 import petsc4py
+import pyamg
 from petsc4py import PETSc
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import LinearOperator, gmres, spsolve
-import pyamg
 
 from solver_selector.simulation_runner import SimulationModel
 from solver_selector.solver_space import KrylovSolverNode, SolverConfigNode

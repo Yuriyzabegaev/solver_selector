@@ -1,4 +1,5 @@
 import warnings
+
 import numpy as np
 import pytest
 from tests_common import DummpyProblemContext, generate_synthetic_data

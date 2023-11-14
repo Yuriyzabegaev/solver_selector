@@ -51,16 +51,18 @@ class SolverSelector:
         self,
         solver_space: SolverConfigNode,
         predictors: Sequence[PerformancePredictor],
+        solver_templates: Optional[Sequence[DecisionTemplate]] = None,
     ):
+        if solver_templates is None:
+            solver_templates = solver_space.get_all_solvers()
+
         self.solver_space: SolverConfigNode = solver_space
-        self.all_solvers: Sequence[
-            DecisionTemplate
-        ] = self.solver_space.get_all_solvers()
+        self.solver_templates: Sequence[DecisionTemplate] = solver_templates
         self.memory: list[SolverSelectionData] = []
         self.predictors: Sequence[PerformancePredictor] = predictors
 
     def show_all_solvers(self) -> None:
-        for i, solver_template in enumerate(self.all_solvers):
+        for i, solver_template in enumerate(self.solver_templates):
             default_solver = solver_template.use_defaults()
             config = self.solver_space.config_from_decision(default_solver)
             print(f"{i}:", self.solver_space.format_config(config))
@@ -117,32 +119,40 @@ class SolverSelector:
                 rewards=selection_data.rewards,
                 work_time=selection_data.work_time,
             )
-            decision_idx = self._get_solver_idx(decision)
-            datasets_for_predictors[decision_idx].append(new_selection_data)
-
+            try:
+                decision_idx = self._get_solver_idx(decision)
+            except ValueError:
+                pass
+            else:
+                datasets_for_predictors[decision_idx].append(new_selection_data)
+        num_used_points = sum([len(x) for x in datasets_for_predictors])
+        print(f"Used {num_used_points} / {len(selection_dataset)} data points.")
         for dataset, predictor in zip(datasets_for_predictors, self.predictors):
             predictor.offline_update(dataset)
 
     def _get_solver_idx(self, decision: Decision) -> int:
-        for idx, solver in enumerate(self.all_solvers):
+        for idx, solver in enumerate(self.solver_templates):
             if solver.subsolvers == decision.subsolvers:
                 return idx
         raise ValueError("Index not found.")
 
 
 def make_solver_selector(
-    solver_space: SolverConfigNode, params: Optional[dict] = None
+    solver_space: SolverConfigNode,
+    params: Optional[dict] = None,
+    solver_templates: Optional[Sequence[DecisionTemplate]] = None,
 ) -> SolverSelector:
     params = params or {}
-    all_solvers = solver_space.get_all_solvers()
-    print(f"Selecting from {len(all_solvers)} solvers.")
-    for i, solver_template in enumerate(all_solvers):
+    if solver_templates is None:
+        solver_templates = solver_space.get_all_solvers()
+    print(f"Selecting from {len(solver_templates)} solvers.")
+    for i, solver_template in enumerate(solver_templates):
         default = solver_template.use_defaults()
         conf = solver_space.config_from_decision(decision=default, optimized_only=True)
         print(i, solver_space.format_config(conf))
 
     predictors = []
-    for solver_template in all_solvers:
+    for solver_template in solver_templates:
         predictors.append(
             make_performance_predictor(params=params, solver_template=solver_template)
         )
@@ -150,6 +160,7 @@ def make_solver_selector(
     solver_selector = SolverSelector(
         solver_space=solver_space,
         predictors=predictors,
+        solver_templates=solver_templates,
     )
 
     load_statistics_paths: Sequence[str]

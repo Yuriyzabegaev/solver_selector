@@ -8,7 +8,6 @@ from solver_selector.data_structures import (
     ProblemContext,
     SolverSelectionData,
 )
-
 from solver_selector.solver_selector import (
     RewardPicker,
     SolverSelector,

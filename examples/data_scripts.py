@@ -38,6 +38,13 @@ def make_solve_linear_system_time(perf, converged=True):
     )
 
 
+def make_assemble_time(perf, converged=True):
+    solution_stats_converged = make_solution_stats(perf, converged=converged)
+    return np.array(
+        [y.assembly_time for x in solution_stats_converged for y in x.iterations]
+    )
+
+
 def make_peclet_max(perf, converged=True):
     predictions = make_predictions(perf, converged=converged)
     return np.array([x.context.peclet_max for x in predictions])

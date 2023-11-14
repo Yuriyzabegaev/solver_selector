@@ -5,11 +5,10 @@ from typing import Sequence
 import numpy as np
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.ensemble import GradientBoostingRegressor
-from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process import kernels
-from sklearn.linear_model import Ridge, Lasso
+from sklearn.gaussian_process import GaussianProcessRegressor, kernels
+from sklearn.linear_model import Ridge
 from sklearn.neural_network import MLPRegressor
-from sklearn.pipeline import make_pipeline, Pipeline
+from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.preprocessing import StandardScaler
 
 from solver_selector.data_structures import (

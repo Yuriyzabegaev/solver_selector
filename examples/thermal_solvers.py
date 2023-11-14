@@ -16,10 +16,10 @@ from solver_selector.solver_space import (
     ConstantNode,
     ForkNode,
     KrylovSolverNode,
+    NumericalParameter,
     ParametersNode,
     SolverConfigNode,
     SplittingNode,
-    NumericalParameter,
 )
 
 if TYPE_CHECKING:
@@ -71,7 +71,12 @@ class SplittingNodeCPR(SolverConfigNode):
         self.primary_variable: SolverConfigNode = primary_variable
 
         self.splitting = SplittingNode.from_solvers_list(solver_nodes=solver_nodes)
-        super().__init__(children=[self.splitting, self.primary_variable])
+        super().__init__(
+            children=[
+                self.splitting,
+                # self.primary_variable,
+            ]
+        )
 
     def copy(self):
         return SplittingNodeCPR(
@@ -110,7 +115,11 @@ class SplittingNodeSchurCD(SolverConfigNode):
         self.method = method
 
         super().__init__(
-            children=[splitting, primary_variable, method],
+            children=[
+                splitting,
+                # primary_variable,
+                method,
+            ],
         )
 
     def copy(self):
@@ -226,8 +235,6 @@ class SplittingCPR(Preconditioner):
         thermal_problem: "ThermalSimulationModel",
         config: Optional[dict] = None,
     ):
-        for param in ["primary_variable"]:
-            assert param in config
         self.linear_solver_primary: LinearSolver = linear_solver_primary
         self.linear_solver_secondary: LinearSolver = linear_solver_secondary
         self.thermal_problem: "ThermalSimulationModel" = thermal_problem
@@ -236,7 +243,7 @@ class SplittingCPR(Preconditioner):
     def update(self, mat):
         super().update(mat)
         prim_ind, sec_ind = self.thermal_problem.get_primary_secondary_indices(
-            self.config["primary_variable"]
+            primary_variable="pressure"
         )
         self.primary_ind = prim_ind
         mat_00 = mat[prim_ind[:, None], prim_ind]
@@ -264,14 +271,12 @@ class SplittingSchurCD(SplittingSchur):
         config: dict,
     ):
         self.thermal_problem: "ThermalSimulationModel" = thermal_problem
-        for param in ["primary_variable"]:
-            assert param in config
         super().__init__(linear_solver_primary, linear_solver_secondary, config)
 
     def update(self, mat):
         super().update(mat)
         prim_ind, sec_ind = self.thermal_problem.get_primary_secondary_indices(
-            self.config["primary_variable"]
+            primary_variable="pressure"
         )
         self.primary_ind = prim_ind
         self.secondary_ind = sec_ind

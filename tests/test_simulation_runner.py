@@ -1,5 +1,4 @@
 from pytest import raises
-
 from tests_common import DummpyProblemContext
 
 from solver_selector.data_structures import (

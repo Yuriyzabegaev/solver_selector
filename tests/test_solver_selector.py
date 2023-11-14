@@ -1,4 +1,7 @@
+from typing import Sequence
+
 import numpy as np
+import pytest
 from tests_common import DummpyProblemContext, generate_synthetic_data
 
 from solver_selector.data_structures import SolverSelectionData
@@ -8,6 +11,7 @@ from solver_selector.performance_predictor import (
 )
 from solver_selector.solver_selector import SolverSelector
 from solver_selector.solver_space import (
+    DecisionTemplate,
     ForkNode,
     KrylovSolverNode,
     NumericalParameter,
@@ -46,10 +50,15 @@ def make_solver_space():
     return solver_space
 
 
-def make_solver_selector(solver_space: SolverConfigNode):
-    all_solvers = solver_space.get_all_solvers()
+def make_solver_selector(
+    solver_space: SolverConfigNode,
+    solver_templates: Sequence[DecisionTemplate] | None = None,
+):
+    if solver_templates is None:
+        solver_templates = solver_space.get_all_solvers()
+
     predictors: list[PerformancePredictor] = []
-    for solver_template in all_solvers:
+    for solver_template in solver_templates:
         predictors.append(
             PerformancePredictorEpsGreedy(
                 decision_template=solver_template, exploration=0
@@ -58,6 +67,7 @@ def make_solver_selector(solver_space: SolverConfigNode):
     return SolverSelector(
         solver_space=solver_space,
         predictors=predictors,
+        solver_templates=solver_templates,
     )
 
 
@@ -92,12 +102,22 @@ def test_sovler_selector():
     prediction_offline = solver_selector_offline.select_solver(context)
 
     assert prediction.score == prediction_offline.score
-    config = solver_space.config_from_decision(
-        prediction.decision
-    )
+    config = solver_space.config_from_decision(prediction.decision)
     new_config = new_solver_space.config_from_decision(prediction_offline.decision)
     assert config == new_config
 
 
+def test_subset_of_solvers():
+    solver_space = make_solver_space()
+    solvers = solver_space.get_all_solvers()
+    solver_selector = make_solver_selector(solver_space, solver_templates=solvers[1:])
+
+    solver_id = solver_selector._get_solver_idx(solvers[1].use_defaults())
+    assert solver_id == 0
+    with pytest.raises(ValueError):
+        solver_id = solver_selector._get_solver_idx(solvers[0].use_defaults())
+
+
 if __name__ == "__main__":
     test_sovler_selector()
+    test_subset_of_solvers()

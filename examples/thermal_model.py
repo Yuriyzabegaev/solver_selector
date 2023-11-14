@@ -523,6 +523,7 @@ class SchurCDApproximation(ThermalBase):
             result = self.fluid_enthalpy(boundary_grids)
             result *= self.mobility_rho(boundary_grids)
             return result
+
         boundary_operator_enthalpy = (
             self._combine_boundary_operators(  # type: ignore[call-arg]
                 subdomains=subdomains,
