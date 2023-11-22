@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Literal, Optional, Sequence
+from typing import TYPE_CHECKING, Literal, Optional
 
 import numpy as np
 from solvers_common import (
@@ -9,6 +9,7 @@ from solvers_common import (
     Preconditioner,
     SolverAssembler,
     SplittingSchur,
+    DirectSolverNode,
 )
 
 from solver_selector.solver_space import (
@@ -194,12 +195,18 @@ def make_maximum_solvers_setup():
         cpr = SplittingNodeCPR(constrained_solver=inner.copy())
         return schur, cpr
 
-    stationary_preconditioners = make_splitting(inner_nokrylov)
+    stationary_preconditioners = make_splitting(
+        ForkNode(
+            DirectSolverNode(),
+            inner_nokrylov,
+        )
+    )
     all_preconditioners = make_splitting(
         ForkNode(
             [
                 inner_gmres,
                 inner_nokrylov,
+                DirectSolverNode(),
             ]
         )
     )
@@ -220,6 +227,7 @@ def make_maximum_solvers_setup():
         [
             outer_fgmres,
             outer_gmres,
+            DirectSolverNode(),
         ]
     )
 

@@ -9,13 +9,10 @@ fi
 cd 1
 bash run.bash $1
 
-cd ../2
+cd ../2_source_location
 bash run.bash $1
 
-# cd ../3
-# bash run.bash $1
-
-cd ../3.1
+cd ../3_medium
 bash run.bash $1
 
 cd ../4

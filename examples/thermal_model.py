@@ -273,15 +273,33 @@ class ThermalSource(ThermalBase):
     KEY_FLUID_SOURCE = "key_fluid_source"
 
     def get_inlet_cells(self, sd: pp.Grid):
-        x_inj = 265
-        y_inj = 260
+        source_location: int = self.config['source_location']
+        if source_location == 0:
+            # high-perm region
+            x_inj = 265
+            y_inj = 260
+        elif source_location == 1:
+            # low-perm region
+            x_inj = 265
+            y_inj = 60
+        else:
+            raise ValueError
         x, y, _ = sd.cell_centers
         loc = np.argmin(np.sqrt((x - x_inj) ** 2 + (y - y_inj) ** 2))
         return loc
 
-    def get_outlet_cells(self, sd):
-        x_inj = 140.0
-        y_inj = 210.0
+    def get_outlet_cells(self, sd: pp.Grid):
+        source_location: int = self.config['source_location']
+        if source_location == 0:
+            # high-perm region
+            x_inj = 140.0
+            y_inj = 210.0
+        elif source_location == 1:
+            # low-perm region
+            x_inj = 140
+            y_inj = 10
+        else:
+            raise ValueError
         x, y, _ = sd.cell_centers
         loc = np.argmin(np.sqrt((x - x_inj) ** 2 + (y - y_inj) ** 2))
         return loc
@@ -761,7 +779,8 @@ class ThermalSimulationModel(PorepySimulation):
 
 
 def make_thermal_setup(
-    model_size: Literal["small", "medium", "large"]
+    model_size: Literal["small", "medium", "large"],
+    source_location: Literal[0, 1] = 0,
 ) -> ThermalSimulationModel:
     base_path = Path(__file__).parent / "spe10_data"
     if model_size == "small":
@@ -793,6 +812,7 @@ def make_thermal_setup(
                 constant_dt=False,
                 dt_min_max=(dt, T_END / 10),
             ),
+            "source_location": source_location,
         }
     )
     porepy_setup.prepare_simulation()
