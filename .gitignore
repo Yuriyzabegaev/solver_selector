@@ -6,3 +6,4 @@ __pycache__
 *.geo_unrolled
 times.json
 *.pdf
+.vscode

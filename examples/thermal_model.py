@@ -273,7 +273,7 @@ class ThermalSource(ThermalBase):
     KEY_FLUID_SOURCE = "key_fluid_source"
 
     def get_inlet_cells(self, sd: pp.Grid):
-        source_location: int = self.config['source_location']
+        source_location: int = self.params['source_location']
         if source_location == 0:
             # high-perm region
             x_inj = 265
@@ -289,7 +289,7 @@ class ThermalSource(ThermalBase):
         return loc
 
     def get_outlet_cells(self, sd: pp.Grid):
-        source_location: int = self.config['source_location']
+        source_location: int = self.params['source_location']
         if source_location == 0:
             # high-perm region
             x_inj = 140.0

@@ -128,7 +128,8 @@ class SolverSelector:
         num_used_points = sum([len(x) for x in datasets_for_predictors])
         print(f"Used {num_used_points} / {len(selection_dataset)} data points.")
         for dataset, predictor in zip(datasets_for_predictors, self.predictors):
-            predictor.offline_update(dataset)
+            if len(dataset) > 0:
+                predictor.offline_update(dataset)
 
     def _get_solver_idx(self, decision: Decision) -> int:
         for idx, solver in enumerate(self.solver_templates):
