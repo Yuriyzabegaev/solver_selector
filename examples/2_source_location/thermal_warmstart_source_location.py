@@ -19,6 +19,7 @@ simulation_runner = make_simulation_runner(
         "save_statistics_path": experiment_path,
         "print_solver": True,
         "load_statistics_paths": load_data_paths,
+        "exploration": 0,
     },
 )
 

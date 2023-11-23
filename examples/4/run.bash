@@ -10,6 +10,7 @@ num_repeats=$1
 
 targets=(
     "thermal_many_solvers.py"
+    "thermal_many_solvers_gp.py"
 )
 
 

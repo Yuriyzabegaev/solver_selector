@@ -279,9 +279,13 @@ class ThermalSource(ThermalBase):
             x_inj = 265
             y_inj = 260
         elif source_location == 1:
-            # low-perm region
-            x_inj = 265
-            y_inj = 60
+            # # low-perm region
+            # x_inj = 265
+            # y_inj = 60
+
+            # high-perm region
+            x_inj = 265.
+            y_inj = 260.
         else:
             raise ValueError
         x, y, _ = sd.cell_centers
@@ -296,8 +300,8 @@ class ThermalSource(ThermalBase):
             y_inj = 210.0
         elif source_location == 1:
             # low-perm region
-            x_inj = 140
-            y_inj = 10
+            x_inj = 140.
+            y_inj = 300.
         else:
             raise ValueError
         x, y, _ = sd.cell_centers
@@ -784,14 +788,14 @@ def make_thermal_setup(
 ) -> ThermalSimulationModel:
     base_path = Path(__file__).parent / "spe10_data"
     if model_size == "small":
-        spe10_phi = base_path / "spe10_l3_120_phi.npy"
-        spe10_perm = base_path / "spe10_l3_120_perm.npy"
+        spe10_phi = base_path / "spe10_l0_120_phi.npy"
+        spe10_perm = base_path / "spe10_l0_120_perm.npy"
     elif model_size == "medium":
-        spe10_phi = base_path / "spe10_l3_220_phi.npy"
-        spe10_perm = base_path / "spe10_l3_220_perm.npy"
+        spe10_phi = base_path / "spe10_l0_220_phi.npy"
+        spe10_perm = base_path / "spe10_l0_220_perm.npy"
     elif model_size == "large":
-        spe10_phi = base_path / "spe10_l3_mirrored_phi.npy"
-        spe10_perm = base_path / "spe10_l3_mirrored_perm.npy"
+        spe10_phi = base_path / "spe10_l0_mirrored_phi.npy"
+        spe10_perm = base_path / "spe10_l0_mirrored_perm.npy"
     else:
         raise ValueError(model_size)
 

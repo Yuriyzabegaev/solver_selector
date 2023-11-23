@@ -114,7 +114,10 @@ class PorepyNewtonSolver(Solver):
                     error_norm = -1
 
             self.residual_norms.append(np.linalg.norm(rhs))
-            if linear_stats.residual_decrease > 1e16:
+            if (
+                linear_stats.residual_decrease is not None
+                and linear_stats.residual_decrease > 1e16
+            ):
                 is_diverged = True
 
             if not linear_stats.is_converged:
