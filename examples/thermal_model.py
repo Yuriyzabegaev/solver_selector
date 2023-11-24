@@ -279,13 +279,8 @@ class ThermalSource(ThermalBase):
             x_inj = 265
             y_inj = 260
         elif source_location == 1:
-            # # low-perm region
-            # x_inj = 265
-            # y_inj = 60
-
-            # high-perm region
-            x_inj = 265.
-            y_inj = 260.
+            x_inj = 140.0
+            y_inj = 210.0
         else:
             raise ValueError
         x, y, _ = sd.cell_centers
@@ -295,11 +290,9 @@ class ThermalSource(ThermalBase):
     def get_outlet_cells(self, sd: pp.Grid):
         source_location: int = self.params['source_location']
         if source_location == 0:
-            # high-perm region
             x_inj = 140.0
             y_inj = 210.0
         elif source_location == 1:
-            # low-perm region
             x_inj = 140.
             y_inj = 300.
         else:

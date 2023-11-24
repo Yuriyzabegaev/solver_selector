@@ -100,6 +100,16 @@ class SolverSelector:
         runs. Used for warm-starting.
 
         """
+        datasets_for_predictors = self._sort_decisions_for_predictors(selection_dataset)
+        num_used_points = sum([len(x) for x in datasets_for_predictors])
+        print(f"Used {num_used_points} / {len(selection_dataset)} data points.")
+        for dataset, predictor in zip(datasets_for_predictors, self.predictors):
+            if len(dataset) > 0:
+                predictor.offline_update(dataset)
+
+    def _sort_decisions_for_predictors(
+        self, selection_dataset: Sequence[SolverSelectionData]
+    ) -> Sequence[Sequence[SolverSelectionData]]:
         datasets_for_predictors: list[list[SolverSelectionData]] = [
             [] for _ in range(len(self.predictors))
         ]
@@ -125,11 +135,7 @@ class SolverSelector:
                 pass
             else:
                 datasets_for_predictors[decision_idx].append(new_selection_data)
-        num_used_points = sum([len(x) for x in datasets_for_predictors])
-        print(f"Used {num_used_points} / {len(selection_dataset)} data points.")
-        for dataset, predictor in zip(datasets_for_predictors, self.predictors):
-            if len(dataset) > 0:
-                predictor.offline_update(dataset)
+        return datasets_for_predictors
 
     def _get_solver_idx(self, decision: Decision) -> int:
         for idx, solver in enumerate(self.solver_templates):

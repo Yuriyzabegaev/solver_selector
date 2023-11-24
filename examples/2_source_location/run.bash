@@ -12,6 +12,7 @@ targets=(
     "thermal_coldstart_source_location.py"
     "thermal_coldstart_source_location_no_expl.py"
     "thermal_warmstart_source_location.py"
+    "thermal_warmstart_source_location_no_expl.py"
 )
 
 
