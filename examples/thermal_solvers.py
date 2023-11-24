@@ -198,7 +198,7 @@ def make_maximum_solvers_setup():
     stationary_preconditioners = make_splitting(
         ForkNode(
             [
-                DirectSolverNode(),
+                # DirectSolverNode(),
                 inner_nokrylov,
             ]
         )
@@ -208,7 +208,7 @@ def make_maximum_solvers_setup():
             [
                 inner_gmres,
                 inner_nokrylov,
-                DirectSolverNode(),
+                # DirectSolverNode(),
             ]
         )
     )
