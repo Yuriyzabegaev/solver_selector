@@ -117,7 +117,10 @@ class SolverSelector:
             # We need to recreate the internal representation of decision to support
             # using data from different solver tree, e.g. add new solver and train on
             # data without them.
-            decision = self.solver_space.decision_from_config(selection_data.config)
+            try:
+                decision = self.solver_space.decision_from_config(selection_data.config)
+            except KeyError:
+                continue
             new_selection_data = SolverSelectionData(
                 nonlinear_solver_stats=selection_data.nonlinear_solver_stats,
                 prediction=PerformancePredictionData(
@@ -132,9 +135,8 @@ class SolverSelector:
             try:
                 decision_idx = self._get_solver_idx(decision)
             except ValueError:
-                pass
-            else:
-                datasets_for_predictors[decision_idx].append(new_selection_data)
+                continue
+            datasets_for_predictors[decision_idx].append(new_selection_data)
         return datasets_for_predictors
 
     def _get_solver_idx(self, decision: Decision) -> int:
