@@ -9,10 +9,10 @@ fi
 num_repeats=$1
 
 targets=(
-    "poro_l0.py"
-    "poro_l1.py"
-    "poro_ldynamic.py"
-    "poro_lrandom.py"
+    # "poro_l0.py"
+    # "poro_l1.py"
+    # "poro_ldynamic.py"
+    # "poro_lrandom.py"
     "thermal_dynamic.py"
     "thermal_random.py"
     "thermal_cpr.py"

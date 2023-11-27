@@ -361,7 +361,7 @@ def make_performance_predictor(
     params: dict, solver_template: DecisionTemplate
 ) -> PerformancePredictor:
     predictor_name = params.get("predictor", "eps_greedy")
-    samples_before_fit = params.get("samples_before_fit", 10)
+    samples_before_fit = params.get("samples_before_fit", 3)
 
     if predictor_name == "eps_greedy":
         print("Using epsilon-greedy exploration")

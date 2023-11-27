@@ -294,7 +294,7 @@ class ThermalSource(ThermalBase):
             y_inj = 210.0
         elif source_location == 1:
             x_inj = 140.
-            y_inj = 300.
+            y_inj = 100.
         else:
             raise ValueError
         x, y, _ = sd.cell_centers
