@@ -49,7 +49,7 @@ class ThermalBase(MassAndEnergyBalance):
     def __init__(self, params: dict | None = None) -> None:
         spe10_phi_path = Path(params["spe10_phi"])
         spe10_perm_path = Path(params["spe10_perm"])
-        self._perm = np.load(spe10_perm_path).T * PERMEABILITY * 1e6
+        self._perm = np.load(spe10_perm_path).T * PERMEABILITY * 1e6  # From m^2 to mm^2
         self._phi = np.load(spe10_phi_path).T
         self._phi = np.maximum(self._phi, 1e-10)
         # self._phi = self._phi[:10, :10]
