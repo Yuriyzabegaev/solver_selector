@@ -11,7 +11,7 @@ from solver_selector.simulation_runner import make_simulation_runner
 
 experiment_path = append_experiment_name(__file__)
 print("Starting experiment:", experiment_path.name)
-simulation = make_thermal_setup(model_size="small", source_location=1)
+simulation = make_thermal_setup(model_size="medium", source_location=1)
 solver_space = make_thermal_solver_space(solver="dynamic")
 simulation_runner = make_simulation_runner(
     solver_space=solver_space,
