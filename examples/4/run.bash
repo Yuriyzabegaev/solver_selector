@@ -9,8 +9,11 @@ fi
 num_repeats=$1
 
 targets=(
-    "thermal_many_solvers.py"
-    "thermal_many_solvers_gp.py"
+#    "thermal_many_solvers.py"
+#    "thermal_many_solvers_gp.py"
+#    "thermal_random.py"
+    "thermal_coldstart_source_location.py"
+    "thermal_warmstart_source_location.py"
 )
 
 
