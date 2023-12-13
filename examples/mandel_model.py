@@ -105,8 +105,7 @@ class MandelSimulationModel(PorepySimulation):
 
         density = (
             porepy_setup.fluid_density(subdomains)
-            .evaluate(porepy_setup.equation_system)
-            .val
+            .value(porepy_setup.equation_system)
         )
         diagonal_approx *= density
 

@@ -254,8 +254,8 @@ class ThermalBase(MassAndEnergyBalance):
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
         subdomains = self.mdg.subdomains()
-        visc = self.fluid_viscosity(subdomains).evaluate(self.equation_system).val
-        dens = self.fluid_density(subdomains).evaluate(self.equation_system).val
+        visc = self.fluid_viscosity(subdomains).value(self.equation_system)
+        dens = self.fluid_density(subdomains).value(self.equation_system)
         print(f"visc min: {visc.min()}, max: {visc.max()}")
         print(f"rho min: {dens.min()}, max: {dens.max()}")
         super().after_nonlinear_convergence(solution, errors, iteration_counter)
@@ -273,7 +273,7 @@ class ThermalSource(ThermalBase):
     KEY_FLUID_SOURCE = "key_fluid_source"
 
     def get_inlet_cells(self, sd: pp.Grid):
-        source_location: int = self.params['source_location']
+        source_location: int = self.params["source_location"]
         if source_location == 0:
             # high-perm region
             x_inj = 265
@@ -288,13 +288,13 @@ class ThermalSource(ThermalBase):
         return loc
 
     def get_outlet_cells(self, sd: pp.Grid):
-        source_location: int = self.params['source_location']
+        source_location: int = self.params["source_location"]
         if source_location == 0:
             x_inj = 140.0
             y_inj = 210.0
         elif source_location == 1:
-            x_inj = 140.
-            y_inj = 100.
+            x_inj = 140.0
+            y_inj = 100.0
         else:
             raise ValueError
         x, y, _ = sd.cell_centers
@@ -640,15 +640,11 @@ class ThermalSimulationModel(PorepySimulation):
 
     def compute_peclet(self):
         model = self.porepy_setup
-        fourier_flux = (
-            model.fourier_flux(model.mdg.subdomains())
-            .evaluate(model.equation_system)
-            .val
+        fourier_flux = model.fourier_flux(model.mdg.subdomains()).value(
+            model.equation_system
         )
-        enthalpy_flux = (
-            model.enthalpy_flux(model.mdg.subdomains())
-            .evaluate(model.equation_system)
-            .val
+        enthalpy_flux = model.enthalpy_flux(model.mdg.subdomains()).value(
+            model.equation_system
         )
         fourier_flux = np.maximum(fourier_flux, 1e-10)
         peclet_max = abs(enthalpy_flux / fourier_flux).max()
@@ -658,13 +654,9 @@ class ThermalSimulationModel(PorepySimulation):
     def compute_cfl(self):
         setup = self.porepy_setup
         velosity = (
-            (
-                setup.darcy_flux(setup.mdg.subdomains())
-                / setup.fluid_viscosity_formula(422)
-            )
-            .evaluate(setup.equation_system)
-            .val
-        )
+            setup.darcy_flux(setup.mdg.subdomains())
+            / setup.fluid_viscosity_formula(422)
+        ).value(setup.equation_system)
         length = setup.mdg.subdomains()[0].face_areas
         time_step = setup.time_manager.dt
         CFL = velosity * time_step / length
@@ -679,14 +671,12 @@ class ThermalSimulationModel(PorepySimulation):
         outlet_cells = setup.get_outlet_cells(subdomains[0])
         inlet_rate = (
             setup.fluid_rate_inlet(subdomains)
-            .evaluate(setup.equation_system)
-            .val[inlet_cells]
+            .value(setup.equation_system)[inlet_cells]
             .max()
         )
         outlet_rate = (
             setup.fluid_rate_outlet(subdomains)
-            .evaluate(setup.equation_system)
-            .val[outlet_cells]
+            .value(setup.equation_system)[outlet_cells]
             .min()
         )
         sin_factor = setup.well_on
@@ -746,7 +736,7 @@ class ThermalSimulationModel(PorepySimulation):
         raise ValueError(f"{primary_variable=}")
 
     def get_schur_cd_approximation(self, indices: np.ndarray):
-        schur_ad = self.porepy_setup.schur_ad.evaluate(
+        schur_ad = self.porepy_setup.schur_ad.value_and_jacobian(
             self.porepy_setup.equation_system
         )
         return schur_ad.jac[:, indices]

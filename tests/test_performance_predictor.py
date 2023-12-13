@@ -68,10 +68,13 @@ def test_parameters_space():
         {
             "predictor": "eps_greedy",
             "regressor": "gradient_boosting",
+            'exploration': 0,
         },
         {
             "predictor": "eps_greedy",
             "regressor": "mlp",
+            'exploration': 0,
+            'samples_before_fit': 10,
         },
         {
             "predictor": "gaussian_process",

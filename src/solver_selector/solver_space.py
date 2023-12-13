@@ -313,6 +313,7 @@ class CategoryParameterSelector(SolverConfigNode):
         self, config: dict
     ) -> tuple[dict[int, str], dict[int, dict[str, number]]]:
         decision = config
+        assert isinstance(decision, str)
         assert decision in self.options
         return {self._id: decision}, {}
 

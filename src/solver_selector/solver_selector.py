@@ -173,11 +173,15 @@ def make_solver_selector(
     )
 
     load_statistics_paths: Sequence[str]
+    data: Sequence[SolverSelectionData]
     if load_statistics_paths := params.get("load_statistics_paths", None):
         print("Warm start using data:")
         for path in load_statistics_paths:
             print(path)
         data = load_data(load_statistics_paths)
+        solver_selector.learn_performance_offline(selection_dataset=data)
+
+    if data := params.get("load_statistics", None):
         solver_selector.learn_performance_offline(selection_dataset=data)
 
     return solver_selector

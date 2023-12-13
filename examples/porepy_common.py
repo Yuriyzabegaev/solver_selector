@@ -18,7 +18,7 @@ class PorepySimulation(SimulationModel):
         setup = self.porepy_setup
         subdomains = setup.mdg.subdomains()
         velosity = setup.darcy_flux(subdomains) / setup.fluid_viscosity(subdomains)
-        velosity = velosity.evaluate(setup.equation_system).val
+        velosity = velosity.value(setup.equation_system)
         length = setup.mdg.subdomains()[0].face_areas
         time_step = setup.time_manager.dt
         CFL = velosity * time_step / length
