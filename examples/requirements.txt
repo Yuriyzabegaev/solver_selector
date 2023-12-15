@@ -1,4 +1,4 @@
-petsc4py
+# petsc4py
 pandas
 jupyter
 jupyterlab
