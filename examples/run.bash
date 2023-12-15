@@ -12,8 +12,8 @@ bash run.bash $1
 cd ../2_source_location
 bash run.bash $1
 
-cd ../3_medium
+cd ../3_exploration_sensitivity
 bash run.bash $1
 
-cd ../4
+cd ../4_extended_solver_space
 bash run.bash $1
