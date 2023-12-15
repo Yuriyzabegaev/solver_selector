@@ -1,3 +1,4 @@
 petsc4py
 pandas
+jupyter
 jupyterlab

@@ -8,7 +8,7 @@ This is how to access it ([Docker](https://www.docker.com/) should be installed)
 docker run -dit --name solver_selector -p 8888:8888 solver_selector:latest
 docker exec -it solver_selector /bin/bash
 ```
-Note that `-p 8888:8888` is a port forwarding to make the Jupyter Notebooks server accessible from your browser to visualize the results of the experiments.
+Note that `-p 8888:8888` is a port forwarding to make the Jupyter Notebooks server inside the Docker container accessible from your browser to visualize the results of the experiments.
 
 ## Alternative installation
 It is recommended to use the Docker image. However, this is a recipe of manual installation.
@@ -43,8 +43,10 @@ bash run.bash <NUM_REPEATS>
 ```
 where `<NUM_REPEATS>` is an integer representing how many times each experiment should be repeated. Alternatively, use `run.bash` scripts at the subdirectories of the experiments. The results are visualized in the `results_*.ipynb` notebooks. The Jupyter Notebooks server is one of the dependencies of the experiments, so it should be accessible by the command:
 ```
-jupyter notebook
+jupyter notebook --allow-root --ip 0.0.0.0 --no-browser
 ```
+This command will provide a link to the server, such as:
+`http://127.0.0.1:8888/tree?token=XXXX`. Click on it, and it should open the Jupyter Notebook in the browser.
 
 ## TODO:
 * License
