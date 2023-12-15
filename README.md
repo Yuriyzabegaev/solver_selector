@@ -3,9 +3,15 @@
 
 ## Installation
 A Docker image with the full environment to reproduce the experiments, including PorePy and PETSc, is available on Zenodo (TODO).
+This is how to access it ([Docker](https://www.docker.com/) should be installed):
+```
+docker run --dit --name solver_selector -p 8888:8888 solver_selector:latest
+docker exec -it solver_selector
+```
+Note that `-p 8888:8888` is a port forwarding to make the Jupyter Notebooks server accessible from your browser to visualize the results of the experiments.
 
 ## Alternative installation
-It is recommended to use the Docker image. However, this is the recipe of manual installation.
+It is recommended to use the Docker image. However, this is a recipe of manual installation.
 1. Install [PETSc](https://petsc.org/) with Hypre and PETSc4Py.
 2. Install [PorePy](https://github.com/pmgbergen/porepy) from the `develop` branch.
 5. Clone this repository:
@@ -35,9 +41,13 @@ The code to reproduce the experiments is in the [examples](./examples/) director
 cd examples
 bash run.bash <NUM_REPEATS>
 ```
-where `<NUM_REPEATS>` is an integer representing how many times each experiment should be repeated. Alternatively, use `run.bash` scripts at the subdirectories of the experiments. The results are visualized in the `results_*.ipynb` notebooks.
+where `<NUM_REPEATS>` is an integer representing how many times each experiment should be repeated. Alternatively, use `run.bash` scripts at the subdirectories of the experiments. The results are visualized in the `results_*.ipynb` notebooks. The Jupyter Notebooks server is one of the dependencies of the experiments, so it should be accessible by the command:
+```
+jupyter notebook
+```
 
 ## TODO:
 * License
 * Docker image
 * Reference to the paper
+* Citing
