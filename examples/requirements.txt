@@ -1,1 +1,2 @@
 petsc4py
+pandas
