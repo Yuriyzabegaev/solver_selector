@@ -5,6 +5,7 @@
 A Docker image with the full environment to reproduce the experiments, including PorePy and PETSc, is available on Zenodo (TODO).
 This is how to access it ([Docker](https://www.docker.com/) should be installed):
 ```
+docker load < solver_selector.tar.gz
 docker run -dit --name solver_selector -p 8888:8888 solver_selector:latest
 docker exec -it solver_selector /bin/bash
 ```
