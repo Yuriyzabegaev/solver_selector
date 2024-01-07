@@ -2,10 +2,9 @@
 
 
 ## Installation
-A Docker image with the full environment to reproduce the experiments, including PorePy and PETSc, is available on Zenodo (TODO).
-This is how to access it ([Docker](https://www.docker.com/) should be installed):
+A Docker image with the full environment to reproduce the experiments, including PorePy and PETSc, is available on Zenodo: [10.5281/zenodo.10407057](https://zenodo.org/doi/10.5281/zenodo.10407057). After downloading the image, execute these commands ([Docker](https://www.docker.com/) should be installed):
 ```
-docker load < solver_selector.tar.gz
+docker load -i solver_selector.tar.gz
 docker run -dit --name solver_selector -p 8888:8888 solver_selector:latest
 docker exec -it solver_selector /bin/bash
 ```
@@ -50,7 +49,5 @@ This command will provide a link to the server, such as:
 `http://127.0.0.1:8888/tree?token=XXXX`. Click on it, and it should open the Jupyter Notebook in the browser.
 
 ## TODO:
-* License
-* Docker image
 * Reference to the paper
 * Citing
