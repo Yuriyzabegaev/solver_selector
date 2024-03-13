@@ -258,17 +258,15 @@ class LinearSolverGMRES(LinearSolver):
             res_0 = np.linalg.norm(b)
         else:
             res_0 = np.linalg.norm(self.mat.dot(x0) - b)
-        x, info = gmres(
+        x, info = pyamg.krylov.gmres(
             A=self.mat,
             b=b,
             x0=x0,
             tol=tol,
-            atol=0,
-            restart=restart,
-            maxiter=maxiter * restart,
+            maxiter=maxiter,
             M=self.preconditioner.aslinearoperator(),
             callback=self.gmres_callback,
-            callback_type="legacy",
+            restrt=restart,
         )
 
         res_end = np.linalg.norm(self.mat.dot(x) - b)

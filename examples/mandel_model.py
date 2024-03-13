@@ -4,7 +4,7 @@ from typing import Literal
 import numpy as np
 import porepy as pp
 import scipy.sparse
-from mandel_biot import MandelSetup as MandelSetup_
+from porepy.examples.mandel_biot import MandelSetup as MandelSetup_
 from mandel_solvers import MandelSolverAssembler
 from porepy_common import PorepyNewtonSolver, PorepySimulation
 from scipy.sparse import csr_matrix
@@ -125,16 +125,16 @@ time_manager = pp.TimeManager(
 
 units = pp.Units(
     # m=1e-3,
-    # kg=1e3,
+    kg=1e9,
 )
 
 ls = 1 / units.m  # length scaling
 
 mandel_solid_constants = {
-    "lame_lambda": 1.65e9 * 1e-6,  # [MPa]
-    "shear_modulus": 2.475e9 * 1e-6,  # [MPa]
-    "specific_storage": 6.0606e-11 * 1e6,  # [MPa^-1]
-    "permeability": 9.869e-14 * 1e6,  # [mm^2]
+    "lame_lambda": 1.65e9,  # [Pa]
+    "shear_modulus": 2.475e9,  # [Pa]
+    "specific_storage": 6.0606e-11,  # [Pa^-1]
+    "permeability": 9.869e-14,  # [m^2]
     "biot_coefficient": 1.0,  # [-]
 }
 
@@ -161,6 +161,7 @@ def make_mandel_setup(
             "meshing_arguments": {
                 "cell_size": cell_size * ls,
             },
+            'units': units,
             "time_manager": time_manager,
             "material_constants": {
                 "solid": pp.SolidConstants(mandel_solid_constants),
